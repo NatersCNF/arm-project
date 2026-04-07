@@ -66,12 +66,12 @@ public class robotArm {
     }
 
     public double[][] R() {
-        switch(rot) {
-            case 'x': return Rx();
-            case 'y': return Ry();
-            case 'z': return Rz();
-            default: return null;
-        }
+        return switch (rot) {
+            case 'x' -> Rx();
+            case 'y' -> Ry();
+            case 'z' -> Rz();
+            default -> null;
+        };
     }
 
     public double[][] T() {
@@ -87,6 +87,7 @@ public class robotArm {
                 T[i][j] = R[i][j];
             }
         }
+
         for(int i = 0; i < 3; i++) {
             T[i][3] = d[i];
         }
@@ -132,5 +133,16 @@ public class robotArm {
         double[][] T = new double[4][4];
         T = (joint == links.length) ? fullT(links) : setT(joint, links);
         return new double[] {T[0][3], T[1][3], T[2][3]};
+    }
+
+    public double[][] getEndAngle(robotArm[] links) {
+        double[][] T = new double[4][4], R = new double[3][3];
+        T = fullT(links);
+        for(int i = 0;i < 3;i++){
+            for(int j = 0;j < 3;j++) {
+                R[i][j] = T[i][j];
+            }
+        }
+        return R;
     }
 }
