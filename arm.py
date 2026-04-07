@@ -1,8 +1,9 @@
 import sympy as sym
 import numpy as np
+import math
 
-class arm:
-    def __init__(self, linkd, axis, setAngle, angleLim = False):
+class link:
+    def __init__(self, linkd, axis, setAngle = math.pi, angleLim = False):
         
         self.linkd = linkd
 
@@ -29,11 +30,3 @@ class arm:
                 this.angle = angle
         else:
             raise ValueError("Start angle outside of limits")
-        
-
-
-
-
-
-
-        
