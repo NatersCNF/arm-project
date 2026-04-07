@@ -2,7 +2,7 @@ import sympy as sym
 import numpy as np
 import math
 
-class link:
+class test:
     def __init__(self, linkd, axis, setAngle = math.pi, angleLim = False):
         
         self.linkd = linkd
@@ -30,3 +30,7 @@ class link:
                 this.angle = angle
         else:
             raise ValueError("Start angle outside of limits")
+
+
+class link:
+    
