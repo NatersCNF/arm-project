@@ -66,5 +66,4 @@ def getAllPos(arm, angles):
         z = float(pos[2, 3])
 
         allPos.append([x, y, z])
-    
     return allPos
