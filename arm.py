@@ -1,5 +1,6 @@
 import sympy
 import numpy as np
+import math
 
 class links:
     def __init__(self, dORtheta, a, alpha, Jlim, joint='r'):
@@ -47,6 +48,8 @@ def getSetDH(arm, n):
     else:
         raise ValueError("not enough links, or invalid link index")
 
+def getFullDH(arm):
+    return getSetDH(arm, len(arm))
 
 def getAllPos(arm, angles):
     allPos = []
@@ -67,3 +70,82 @@ def getAllPos(arm, angles):
 
         allPos.append([x, y, z])
     return allPos
+
+def getX(subX, Xold, J, F):
+    Fval = np.array(F.subs(subX)).astype(float).flatten()
+    Jval = np.linalg.pinv(np.array(J.subs(subX)).astype(float))
+
+    delta = Jval @ Fval
+
+    X = Xold - delta
+    return X
+
+def check(F, subX, iteration, tol=0.01):
+    if iteration > 100:
+        raise ValueError("no solution was found")
+    print(F.subs(subX))
+    
+    for expr in F:
+        output = abs(expr.subs(subX))
+        if output > tol:
+            return True
+    return False
+
+
+def getPosAngle(x, y, z, roll, pitch, yaw, arm):    
+    fullDH = getFullDH(arm)
+    
+    rotation = fullDH[:3, :3]
+
+    Rx = sympy.Matrix([
+        [1, 0, 0,],
+        [0, sympy.cos(roll), -sympy.sin(roll)],
+        [0, sympy.sin(roll), sympy.cos(roll)]
+    ])
+
+    Ry = sympy.Matrix([
+        [sympy.cos(pitch), 0, sympy.sin(pitch)],
+        [0, 1, 0],
+        [-sympy.sin(pitch), 0, sympy.cos(pitch)]
+    ])
+
+    Rz = sympy.Matrix([
+        [sympy.cos(yaw), -sympy.sin(yaw), 0],
+        [sympy.sin(yaw), sympy.cos(yaw), 0],
+        [0, 0, 1],
+    ])
+
+    R = Rz * Ry * Rx
+
+    x_expr = fullDH[0, 3] - x
+    y_expr = fullDH[1, 3] - y
+    z_expr = fullDH[2, 3] - z
+    rotation1_expr = rotation[0, 0] - R[0, 0]
+    rotation2_expr = rotation[1, 0] - R[1, 0]
+    rotation3_expr = rotation[2, 0] - R[2, 0]
+
+    F = sympy.Matrix([x_expr,y_expr,z_expr, rotation1_expr, rotation2_expr, rotation3_expr])
+
+    variables = []
+    Xold = []
+
+    for link in arm:
+        Xold.append(0)
+        if link.joint == 'r':
+            variables.append(link.theta)
+        else:
+            variables.append(link.d)
+    
+    X = Xold.copy()
+    J = F.jacobian(variables)
+
+    subX = [(variables[i], Xold[i]) for i in range(len(variables))]
+    i = 0
+
+    while check(F, subX, i):
+        Xold = X
+        subX = [(variables[i], Xold[i]) for i in range(len(variables))]
+        X = getX(subX, Xold, J, F)
+        i += 1
+
+    return X
