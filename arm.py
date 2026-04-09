@@ -80,8 +80,8 @@ def getX(subX, Xold, J, F):
     X = Xold - delta
     return X
 
-def check(F, subX, iteration, tol=0.01):
-    if iteration > 100:
+def check(F, subX, iteration, tol=0.0001):
+    if iteration > 400:
         raise ValueError("no solution was found")
     print(F.subs(subX))
     

@@ -1,5 +1,6 @@
 import math
 from arm import *
+from plot import *
 
 
 link1 = links(0, 5, math.radians(90), [-math.pi, math.pi])
@@ -19,7 +20,9 @@ pos1 = getAllPos(arm, angles)
 for row in pos1:
     print(row)
 
-angles2 = getPosAngle(1, 1, 10, 0, 0, 0, arm)
+DESIREDPOS = [3, 3, 3]
+
+angles2 = getPosAngle(DESIREDPOS[0], DESIREDPOS[1], DESIREDPOS[2], 0, 0, 0, arm)
 
 print(angles2)
 
