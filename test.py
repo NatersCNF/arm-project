@@ -1,6 +1,5 @@
 import math
 from arm import *
-from plot import *
 
 
 link1 = links(0, 5, math.radians(90), [-math.pi, math.pi])

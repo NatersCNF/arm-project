@@ -92,7 +92,10 @@ def check(F, subX, iteration, tol=0.0001):
     return False
 
 
-def getPosAngle(x, y, z, roll, pitch, yaw, arm):    
+def getPosAngle(x, y, z, roll, pitch, yaw, arm, Xold=None):    
+    if Xold == None:
+        Xold = [0] * len(arm)
+    
     fullDH = getFullDH(arm)
     
     rotation = fullDH[:3, :3]
@@ -127,10 +130,8 @@ def getPosAngle(x, y, z, roll, pitch, yaw, arm):
     F = sympy.Matrix([x_expr,y_expr,z_expr, rotation1_expr, rotation2_expr, rotation3_expr])
 
     variables = []
-    Xold = []
 
-    for link in arm:
-        Xold.append(0)
+    for link in arm:        
         if link.joint == 'r':
             variables.append(link.theta)
         else:
