@@ -83,7 +83,7 @@ def getX(subX, Xold, J, F):
 def check(F, subX, iteration, tol=0.0001):
     if iteration > 400:
         raise ValueError("no solution was found")
-    print(F.subs(subX))
+    # print(F.subs(subX))
     
     for expr in F:
         output = abs(expr.subs(subX))
