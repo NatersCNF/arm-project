@@ -51,6 +51,16 @@ def getSetDH(arm, n):
 def getFullDH(arm):
     return getSetDH(arm, len(arm))
 
+def checkPos(arm, pos):
+    posMagnitude = math.sqrt(math.pow(pos[0],2) + math.pow(pos[1],2) + math.pow(pos[2],2))
+
+    maxLen = 0
+    for link in arm:
+        maxLen = maxLen + link.a
+    
+    if maxLen < posMagnitude:
+        raise ValueError("probably too long")
+
 def getAllPos(arm, angles):
     allPos = []
 
@@ -80,10 +90,10 @@ def getX(subX, Xold, J, F):
     X = Xold - delta
     return X
 
-def check(F, subX, iteration, tol=0.0001):
+def loopCheck(F, subX, iteration, tol=0.0001):
     if iteration > 400:
         raise ValueError("no solution was found")
-    # print(F.subs(subX))
+    print(F.subs(subX))
     
     for expr in F:
         output = abs(expr.subs(subX))
@@ -95,6 +105,9 @@ def check(F, subX, iteration, tol=0.0001):
 def getPosAngle(x, y, z, roll, pitch, yaw, arm, Xold=None):    
     if Xold == None:
         Xold = [0] * len(arm)
+
+    pos = [x, y, z]
+    checkPos(arm, pos)
     
     fullDH = getFullDH(arm)
     
@@ -143,7 +156,7 @@ def getPosAngle(x, y, z, roll, pitch, yaw, arm, Xold=None):
     subX = [(variables[i], Xold[i]) for i in range(len(variables))]
     i = 0
 
-    while check(F, subX, i):
+    while loopCheck(F, subX, i):
         Xold = X
         subX = [(variables[i], Xold[i]) for i in range(len(variables))]
         X = getX(subX, Xold, J, F)
