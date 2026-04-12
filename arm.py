@@ -101,7 +101,6 @@ def loopCheck(F, subX, iteration, tol=0.0001):
             return True
     return False
 
-
 def getPosAngle(x, y, z, roll, pitch, yaw, arm, Xold=None):    
     if Xold == None:
         Xold = [0] * len(arm)
