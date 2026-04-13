@@ -20,16 +20,18 @@ pos1 = getAllPos(arm, angles)
 path1 = path()
 
 
+# path1.addP(point(2, 2, 2, math.pi, 1, 0))
+# path1.addP(point(5, -2, 3, -math.pi, math.pi, 0))
+path1.addP(point(-5, -5, 0, math.pi, 0, -1))
+path1.addP(point(3,3,3,0,0,0))
 path1.addP(point(2, 2, 2, math.pi, 1, 0))
-path1.addP(point(5, -2, 3, -math.pi, math.pi, 0))
-path1.addP(point(5, 5, 0, math.pi, 0, -1))
-path1.addP(point())
 
-ps1 = pointSet(path1, arm, 4)
+
+ps1 = pointSet(path1, arm, 3)
 #pathPoints = ps1.updateCheck()
 
 print("Generate P2P")
-ps1.generateP2P()
+ps1.generatePoints()
 
 print("Print P2P points")
 print("")
