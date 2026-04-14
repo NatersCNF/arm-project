@@ -1,5 +1,5 @@
 import sympy
-import numpy
+import numpy as np
 import math
 from arm import *
 
@@ -30,8 +30,9 @@ class path:
         return self.keyPos[-1]
 
 class pointSet:
-    def __init__(self, path, arm, PPs=10, type="p2p"):
+    def __init__(self, path, arm, type="p2p", PPs=10, speed=1):
         self.nP = 0
+        self.speed = speed
         
         if not(type == "p2p" or type == "smooth"):
             raise ValueError("invalid type")
@@ -48,6 +49,7 @@ class pointSet:
         self.uvec = []
 
         self.points = []
+
         if len(path.keyPos) > 1:
             self.path = path
         else:
@@ -66,24 +68,21 @@ class pointSet:
             self.generateP2P()
 
     def updateUVec(self):
-        if self.type == "p2p":
-            self.uvec.clear()
+        self.uvec.clear()
+        for i in range(self.nP - 1):
+            v = []
+            length = 0
+            for j in range (3):
+                v.append(self.path.keyPos[i + 1][j] - self.path.keyPos[i][j])
+                length += v[j] ** 2
 
-            for i in range(self.nP - 1):
-                v = []
-                length = 0
+            length = math.sqrt(length)
+            v.append(length)
+
+            if length > 0:
                 for j in range (3):
-                    v.append(self.path.keyPos[i + 1][j] - self.path.keyPos[i][j])
-                    length += v[j] ** 2
-
-                length = math.sqrt(length)
-                v.append(length)
-
-                if length > 0:
-                    for j in range (3):
-                        v[j] = v[j] / length
-                self.uvec.append(v)
-        #elif self.type == "smooth":
+                    v[j] = v[j] / length
+            self.uvec.append(v)
     
     def updateCheck(self):
         print("nP value:")
@@ -98,8 +97,9 @@ class pointSet:
         print(str(self.uvec))
         
 
-    def generateP2P(self, speed=1): #speed = u/s, and specified earlier, PPs = points per second 
+    def generateP2P(self): #speed = u/s, and specified earlier, PPs = points per second 
         self.points.clear()
+        
 
         self.points.append(self.path.keyPos[0])
 
@@ -108,7 +108,7 @@ class pointSet:
             final = self.path.keyPos[i + 1]
             currentLength = self.uvec[i][3]
             direction = self.uvec[i][:3]
-            n = int(currentLength * (self.PPs / speed))
+            n = int(currentLength * (self.PPs / self.speed))
 
             interval = currentLength / n
 
@@ -133,36 +133,51 @@ class pointSet:
                 self.points.append([x, y, z, roll, pitch, yaw])
     
     def generateSpline(self):
+        self.points.clear()
         m = []                  # assuming start & stop at first and last point
         m.append([0, 0, 0])
 
-        for i in range(0, 1, (self.nP - 2)):
-            mx = (self.path.keyPos[i + 1][0] - self.path.keyPos[i - 1][0]) / 2
-            my = (self.path.keyPos[i + 1][1] - self.path.keyPos[i - 1][1]) / 2
-            mz = (self.path.keyPos[i + 1][2] - self.path.keyPos[i - 1][2]) / 2
+        for i in range(1, (self.nP - 1)):
+            PA = self.path.keyPos[i + 1]
+            PB = self.path.keyPos[i - 1]
+            
+
+            mx = (PA[0] - PB[0]) / 2
+            my = (PA[1] - PB[1]) / 2
+            mz = (PA[2] - PB[2]) / 2
             
             slope = [mx, my, mz]
             m.append(slope)
-        
         m.append([0, 0, 0])
-            
+        
+        for i in range(0, self.nP - 1):
+            initial = self.path.keyPos[i]
+            final = self.path.keyPos[i + 1]
 
+            posx = final[0] - initial[0]
+            posy = final[1] - initial[1]
+            posz = final[2] - initial[2]
 
+            currentLength = math.sqrt((posx ** 2) + (posy ** 2) + (posz ** 2))
+            PPL = int(currentLength * (self.PPs / self.speed))
 
+            Pi = self.path.keyPos[i][:3]
+            Pi1 = self.path.keyPos[i + 1][:3]
+            mi = m[i]
+            mi1 = m[i + 1]
 
+            for j in range(1, PPL+1):
+                t = (1 / PPL) * j
 
+                roll = initial[3] + ((final[3] - initial[3]) * t)
+                pitch = initial[4] + ((final[4] - initial[4]) * t)
+                yaw = initial[5] + ((final[5] - initial[5]) * t)
 
+                pos = getPatT(t, Pi, Pi1, mi, mi1)
+                pos = pos + [roll, pitch, yaw]
 
-
-
-
-
-
-
-
-
-
-
+                self.points.append(pos)
+ 
     def getPathAngles(self):
         angles = []
         angles.append(getPosAngle(self.points[0],self.arm))
@@ -173,11 +188,11 @@ class pointSet:
             angles.append(getPosAngle(P,self.arm,angles[i-1]))
         return angles
 
-    def printPoints(self):
+    def printPoints(self, offset=0):
         for i, row in enumerate(self.points):
             x, y, z, roll, pitch, yaw = row
 
-            print(f"P_{{{i}}} = ({x}, {y}, {z})")
+            print(f"P_{{{i+offset}}} = ({x}, {y}, {z})")
 
             dx = math.cos(pitch) * math.cos(yaw)
             dy = math.cos(pitch) * math.sin(yaw)
@@ -187,4 +202,49 @@ class pointSet:
             dy = round(dy, 6) + y
             dz = round(dz, 6) + z
 
-            print(f"\\operatorname{{vector}}(P_{{{i}}}, ({dx}, {dy}, {dz}))\n")
+            print(f"\\operatorname{{vector}}(P_{{{i+offset}}}, ({dx}, {dy}, {dz}))\n")
+    
+    def printAllPoints(self):
+        print("p2p points:")
+        print("")
+        self.generateP2P()
+        self.printPoints()
+        n = int(len(self.points))
+        
+        print("spline points:")
+        print("")
+        self.generateSpline()
+        self.printPoints(n)
+
+
+            
+def getH(h, t):
+    if h == "00":
+        h00 = (2 * t ** 3) - (3 * t ** 2) + 1
+        return h00
+    elif h == "10":
+        h10 = (t ** 3) - (2 * t ** 2) + t
+        return h10
+    elif h == "01":
+        h01 = (-2 * t ** 3) + (3 * t ** 2)
+        return h01
+    elif h == "11":
+        h11 = (t ** 3) - (t ** 2)
+        return h11
+    else:
+        raise ValueError("not a valid h function")
+    
+def getPatT(t, Pi, Pi1, mi, mi1):    
+    Pi = np.array(Pi)
+    Pi1 = np.array(Pi1)
+    mi = np.array(mi)
+    mi1 = np.array(mi1)
+
+    P00 = getH("00",t) * Pi
+    
+    P10 = getH("10",t) * mi
+    P01 = getH("01",t) * Pi1
+    P11 = getH("11",t) * mi1
+    P = P00 + P10 + P01 + P11
+    
+    return P.tolist()
