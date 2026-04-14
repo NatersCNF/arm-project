@@ -9,7 +9,6 @@ class point:
         self.rot = [roll, pitch, yaw]
         self.full = self.pos + self.rot
 
-
 class path:
     def __init__(self):
         self.keyPos = []
@@ -96,7 +95,6 @@ class pointSet:
         self.updateUVec()
         print(str(self.uvec))
         
-
     def generateP2P(self): #speed = u/s, and specified earlier, PPs = points per second 
         self.points.clear()
         
@@ -216,8 +214,6 @@ class pointSet:
         self.generateSpline()
         self.printPoints(n)
 
-
-            
 def getH(h, t):
     if h == "00":
         h00 = (2 * t ** 3) - (3 * t ** 2) + 1

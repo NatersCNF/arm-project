@@ -19,7 +19,6 @@ pos1 = getAllPos(arm, angles)
 
 path1 = path()
 
-
 path1.addP(point(2, 2, 2, math.pi, 1, 0))
 path1.addP(point(5, -2, 3, -math.pi, math.pi, 0))
 path1.addP(point(-5, -5, 0, math.pi, 0, -1))
@@ -27,7 +26,6 @@ path1.addP(point(2, 2, 2, math.pi, 1, 0))
 
 #path1.addP(point(3,3,3,0,0,0))
 #path1.addP(point(2, 2, 2, math.pi, 1, 0))
-
 
 ps1 = pointSet(path1, arm, "smooth",4)
 #pathPoints = ps1.updateCheck()
@@ -48,9 +46,6 @@ ps1.printAllPoints()
 #for row in ps1Angles:
 #    print(str(row))
 
-
-
-
 #DESIREDPOS = [-6, 2, 3]
 #angles2 = getPosAngle(DESIREDPOS[0], DESIREDPOS[1], DESIREDPOS[2], 0, -math.pi/2, 0, arm)
 #pos2 = getAllPos(arm, angles2)
@@ -59,8 +54,6 @@ ps1.printAllPoints()
 #for row in pos2:
 #    print("P_"+str(i)+"="+str(row))
 #    i = i + 1
-
-    
 
 # DESIREDPOS = [3, 3, 3]
 
