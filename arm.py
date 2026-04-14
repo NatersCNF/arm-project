@@ -101,12 +101,6 @@ def loopCheck(F, subX, iteration, tol=0.0001):
             return True
     return False
 
-def buildFunction(arm):
-    fullDH = getFullDH(arm)
-    rotation = fullDH[:3, :3]
-    return F, J, variables
-
-
 def getPosAngle(P, arm, Xold=None):
     x, y, z, roll, pitch, yaw = P    
     if Xold is None:
