@@ -1,7 +1,9 @@
-import sympy
 import numpy as np
 import math
 from arm import *
+import matplotlib.pyplot as plt
+from mpl_toolkits import mplot3d
+import matplotlib.animation as animation
 
 class point:
     def __init__(self, x=0, y=0, z=0, roll=0, pitch=0, yaw=0):
@@ -29,7 +31,7 @@ class path:
         return self.keyPos[-1]
 
 class pointSet:
-    def __init__(self, path, arm, type="p2p", PPs=10, speed=1):
+    def __init__(self, path, Arm, type="p2p", PPs=10, speed=1):
         self.nP = 0
         self.speed = speed
         
@@ -37,8 +39,8 @@ class pointSet:
             raise ValueError("invalid type")
         self.type = type
         
-        if all(isinstance(item, links) for item in arm):
-            self.arm = arm
+        if all(isinstance(item, link) for item in Arm):
+            self.Arm = Arm
         else:
             raise ValueError("arm must be an array of links from the links class")
         
@@ -55,6 +57,78 @@ class pointSet:
             raise ValueError("not enough points in the path")
         
         self.updateCheck()
+    
+    def dispPath(self):
+        ps1angles = self.getPathAngles()
+
+        armPositions = []
+        for angle in ps1angles:
+            armPositions.append(getAllPos(self.Arm,angle))
+
+
+        def updateRoboLine(frame, armPositions, line):
+            pos = armPositions[frame]
+
+            clean_pos = [list(p[:3]) for p in pos]
+
+            clean_pos.insert(0, [0, 0, 0])
+
+            pos = np.array(clean_pos)
+
+            x = pos[:, 0]
+            y = pos[:, 1]
+            z = pos[:, 2]
+
+            line.set_data(x, y)
+            line.set_3d_properties(z)
+
+            return line,
+
+
+        fig = plt.figure()
+        ax = fig.add_subplot(projection="3d")
+
+        plt.axis('scaled')
+        
+        ax.set_xlabel('X')
+        ax.set_ylabel('Y')
+        ax.set_zlabel('Z')
+
+        p1 = np.array([0, 0, 0])
+        p2 = np.array([3, 5, 2])
+
+        line, = ax.plot([], [], [], marker='o')
+
+        ALLPOINTS = np.array(self.points)
+
+        vec1x = ALLPOINTS[:, 0]
+        vec1y = ALLPOINTS[:, 1]
+        vec1z = ALLPOINTS[:, 2]
+
+
+        limit = 1000
+        n = 10
+        points = np.arange(-limit, limit + n, n)
+
+        ax.plot(points, 0, 0, color='r', linewidth=1)
+        ax.plot(0, points, 0, color='g', linewidth=1)
+        ax.plot(0, 0, points, color='b', linewidth=1)
+
+        ax.plot(vec1x, vec1y, vec1z)
+        ax.set_title("Robot Arm & Path")
+
+        framerate = 1000
+        intervalFix = 1000 / framerate
+
+        ani = animation.FuncAnimation(
+            fig,
+            updateRoboLine,
+            frames=len(armPositions),
+            fargs=(armPositions, line),
+            interval=intervalFix
+        )
+
+        plt.show()
 
     def updatenP(self):
         self.nP = len(self.path.keyPos)
@@ -84,16 +158,16 @@ class pointSet:
             self.uvec.append(v)
     
     def updateCheck(self):
-        print("nP value:")
+        #print("nP value:")
         self.updatenP()
-        print(str(self.nP))
+        #print(str(self.nP))
 
-        print("POINTS:")
-        print(str(self.path.keyPos))
+        #print("POINTS:")
+        #print(str(self.path.keyPos))
 
-        print("UVECTORS:")
+        #print("UVECTORS:")
         self.updateUVec()
-        print(str(self.uvec))
+        #print(str(self.uvec))
         
     def generateP2P(self): #speed = u/s, and specified earlier, PPs = points per second 
         self.points.clear()
@@ -107,6 +181,9 @@ class pointSet:
             currentLength = self.uvec[i][3]
             direction = self.uvec[i][:3]
             n = int(currentLength * (self.PPs / self.speed))
+
+            if n == 0:
+                n = self.PPs
 
             interval = currentLength / n
 
@@ -157,12 +234,15 @@ class pointSet:
             posz = final[2] - initial[2]
 
             currentLength = math.sqrt((posx ** 2) + (posy ** 2) + (posz ** 2))
+
             PPL = int(currentLength * (self.PPs / self.speed))
 
             Pi = self.path.keyPos[i][:3]
             Pi1 = self.path.keyPos[i + 1][:3]
             mi = m[i]
             mi1 = m[i + 1]
+
+            
 
             for j in range(1, PPL+1):
                 t = (1 / PPL) * j
@@ -178,12 +258,12 @@ class pointSet:
  
     def getPathAngles(self):
         angles = []
-        angles.append(getPosAngle(self.points[0],self.arm))
+        angles.append(getAngle(self.Arm, self.points[0]))
 
         for i in range(1, len(self.points)):
             print("NEW POINT "+str(i))
             P = self.points[i]
-            angles.append(getPosAngle(P,self.arm,angles[i-1]))
+            angles.append(getAngle(self.Arm, P,angles[i-1]))
         return angles
 
     def printPoints(self, offset=0):
