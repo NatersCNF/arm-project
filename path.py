@@ -29,9 +29,18 @@ class path:
     
     def getEnd(self):
         return self.keyPos[-1]
+    
+    def setStart(self, P = None):
+        if P is None:
+            straightAngles = [math.pi] * len(self.Arm)
 
+            startPoints = getAllPos(self.Arm, straightAngles)
+            P = point(startPoints[-1][0], startPoints[-1][1], startPoints[-1][2], 0, 0, 0)
+        
+        self.addP(P)
+            
 class pointSet:
-    def __init__(self, path, Arm, type="p2p", PPs=10, speed=1):
+    def __init__(self, path, Arm, type="p2p", PPs=10, speed=1,live=False):
         self.nP = 0
         self.speed = speed
         
@@ -51,44 +60,88 @@ class pointSet:
 
         self.points = []
 
-        if len(path.keyPos) > 1:
+        if len(path.keyPos) > 1 or live == True:
             self.path = path
         else:
             raise ValueError("not enough points in the path")
         
         self.updateCheck()
     
-    def dispPath(self):
-        ps1angles = self.getPathAngles()
+    def dispPath(self, printToggle=False, frameRate=60,margin=2,labelToggle=True):
+        ps1angles = self.getPathAngles(printToggle)
 
         armPositions = []
         for angle in ps1angles:
             armPositions.append(getAllPos(self.Arm,angle))
+        
+        midPoint = []
+        armPointNum = len(armPositions[0])
 
+        for position in armPositions:
+            mid = []
+            for i in range(armPointNum - 1):
+                midCur = [0, 0, 0]
+                midCur[0] = (position[i][0] + position[i + 1][0]) / 2
+                midCur[1] = (position[i][1] + position[i + 1][1]) / 2
+                midCur[2] = (position[i][2] + position[i + 1][2]) / 2
+                mid.append(midCur)
+            midPoint.append(mid)
+        
+        labels = []
+        
 
-        def updateRoboLine(frame, armPositions, line):
+        def updateRoboLine(frame, armPositions, line, labels, midPoint):
             pos = armPositions[frame]
-
-            clean_pos = [list(p[:3]) for p in pos]
-
-            clean_pos.insert(0, [0, 0, 0])
-
-            pos = np.array(clean_pos)
-
+            
+            cleanPos = [list(p[:3]) for p in pos]
+            cleanPos.insert(0, [0, 0, 0])
+            pos = np.array(cleanPos)
+            
             x = pos[:, 0]
             y = pos[:, 1]
             z = pos[:, 2]
-
+            
             line.set_data(x, y)
             line.set_3d_properties(z)
-
-            return line,
+            
+            if labelToggle and labels:
+                for i, label in enumerate(labels):
+                    frameMid = midPoint[frame][i]
+                    label.set_position((frameMid[0], frameMid[1]))
+                    label.set_3d_properties(frameMid[2], zdir=(1, 1, 0))
+                    
+                return [line] + labels
+            
+            
+            return [line]
 
 
         fig = plt.figure()
         ax = fig.add_subplot(projection="3d")
 
-        plt.axis('scaled')
+        points = np.array(self.points)
+        PathLim = np.array([0, 0, 0, 0, 0, 0]) #xmin, xmax, ymin, ymax, zmin, zmax
+
+        armLim = np.array([0, 0, 0, 0, 0, 0])  # same as pathlim
+        armPosNP = np.array(armPositions)      
+        
+        for i in range(3):
+            PathLim[i * 2] = points[:, i].min()
+            PathLim[(i * 2) + 1] = points[:, i].max()
+
+            armLim[i * 2] = armPosNP[:, :, i].min()
+            armLim[(i * 2) + 1] = armPosNP[:, :, i].max()
+        
+        xMin, xMax = min(PathLim[0], armLim[0]), max(PathLim[1], armLim[1])
+        yMin, yMax = min(PathLim[2], armLim[2]), max(PathLim[3], armLim[3])
+        zMin, zMax = min(PathLim[4], armLim[4]), max(PathLim[5], armLim[5])
+
+
+        ax.set_xlim(xMin - margin, xMax + margin)
+        ax.set_ylim(yMin - margin, yMax + margin)
+        ax.set_zlim(zMin - margin, zMax + margin)
+
+        ax.set_box_aspect([1,1,1])
         
         ax.set_xlabel('X')
         ax.set_ylabel('Y')
@@ -109,6 +162,13 @@ class pointSet:
         limit = 1000
         n = 10
         points = np.arange(-limit, limit + n, n)
+        
+
+        if labelToggle:
+            for i in range(armPointNum - 1):
+                mid = midPoint[0][i]
+                startLabel = ax.text(mid[0], mid[1], mid[2], str(i+1), color='red')
+                labels.append(startLabel)
 
         ax.plot(points, 0, 0, color='r', linewidth=1)
         ax.plot(0, points, 0, color='g', linewidth=1)
@@ -117,14 +177,15 @@ class pointSet:
         ax.plot(vec1x, vec1y, vec1z)
         ax.set_title("Robot Arm & Path")
 
-        framerate = 1000
-        intervalFix = 1000 / framerate
+        
+
+        intervalFix = 1000 / frameRate
 
         ani = animation.FuncAnimation(
             fig,
             updateRoboLine,
             frames=len(armPositions),
-            fargs=(armPositions, line),
+            fargs=(armPositions, line, labels, midPoint),
             interval=intervalFix
         )
 
@@ -156,7 +217,7 @@ class pointSet:
                 for j in range (3):
                     v[j] = v[j] / length
             self.uvec.append(v)
-    
+
     def updateCheck(self):
         #print("nP value:")
         self.updatenP()
@@ -168,10 +229,54 @@ class pointSet:
         #print("UVECTORS:")
         self.updateUVec()
         #print(str(self.uvec))
+
+    """
+    def addLivePoint(self):
+        print("Enter a point, or type 'help' for info")
+        usr = input()
+
+        if usr.lower() == "help":
+            print("Type either the x y and z coordinates (comma and space seperated) to stay the same orientation, or the full x, y, z, roll, pitch, yaw")
+            print("If you want to use the angle pi, just type 'pi' or '-pi'")
+            print("Proper syntax example (just xyz): '5, 3, 2', or full: '2, 1, 3, pi, 0, 0")
         
+        else:
+            Point = usr.split(", ")
+            for i in range(len(Point)):
+                if Point[i].lower() == "pi":
+                    Point[i] = math.pi
+                
+                elif Point[i].lower() == "-pi":
+                    Point[i] = -math.pi
+            
+            Point = [int(n) for n in Point]
+            prevPoint = self.path.keyPos[-1]
+            if len(Point) == 3:
+                Point = point(Point[0], Point[1], Point[2], prevPoint[3], prevPoint[4], prevPoint[5])
+            
+            else:
+                Point = point(Point[0], Point[1], Point[2], Point[3], Point[4], Point[5])
+            
+            self.path.addP(Point)
+            
+    def startLivePointer(self):
+        speed = self.speed
+        PPs = self.PPs
+
+        
+        while True:
+            self.updateCheck()
+            self.addLivePoint()
+            print("CURRENT POINTS:")
+            for i, point in enumerate(self.path.keyPos):
+                print(str(i + 1) + ". " + str(point))
+            
+            m = []
+            m.append([0, 0, 0])
+    """
+
     def generateP2P(self): #speed = u/s, and specified earlier, PPs = points per second 
         self.points.clear()
-        
 
         self.points.append(self.path.keyPos[0])
 
@@ -182,8 +287,13 @@ class pointSet:
             direction = self.uvec[i][:3]
             n = int(currentLength * (self.PPs / self.speed))
 
-            if n == 0:
-                n = self.PPs
+            pos_diff = np.linalg.norm(np.array(final[:3]) - np.array(initial[:3]))
+            rot_diff = np.linalg.norm(np.array(final[3:]) - np.array(initial[3:]))
+
+            # decide interpolation count based on whichever is larger
+            metric = max(pos_diff, rot_diff)
+
+            n = int(metric * (self.PPs / self.speed))
 
             interval = currentLength / n
 
@@ -256,14 +366,15 @@ class pointSet:
 
                 self.points.append(pos)
  
-    def getPathAngles(self):
+    def getPathAngles(self,printToggle=False):
         angles = []
-        angles.append(getAngle(self.Arm, self.points[0]))
+        angles.append(getAngleOG(self.Arm, self.points[0],printOut=printToggle))
 
         for i in range(1, len(self.points)):
-            print("NEW POINT "+str(i))
+            if printToggle:
+                print("NEW POINT "+str(i))
             P = self.points[i]
-            angles.append(getAngle(self.Arm, P,angles[i-1]))
+            angles.append(getAngleOG(self.Arm, P,angles[i-1], printToggle))
         return angles
 
     def printPoints(self, offset=0):

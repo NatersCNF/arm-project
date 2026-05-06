@@ -82,16 +82,21 @@ def getJacobian(arm, values, epsilon=0.00001):
 
         diffR = R1 @ R0.T
 
+        R_plus = transformP[:3, :3]
+        R_minus = transformM[:3, :3]
+
+        R_err = R_plus @ R_minus.T
+
         J[3:6, i] = 0.5 * np.array([
-            diffR[2,1] - diffR[1,2],
-            diffR[0,2] - diffR[2,0],
-            diffR[1,0] - diffR[0,1]
-        ]) / epsilon
+            R_err[2,1] - R_err[1,2],
+            R_err[0,2] - R_err[2,0],
+            R_err[1,0] - R_err[0,1]
+        ]) / (2 * epsilon)
 
 
     return J
 
-def getAngle(arm, P, guess=None,tol=0.001, maxIterations=300):
+def getAngleOG(arm, P, guess=None,printOut=False,tol=0.001, maxIterations=300):
     x, y, z, roll, pitch, yaw = P
 
     targetPos = np.array([x, y, z])
@@ -149,13 +154,14 @@ def getAngle(arm, P, guess=None,tol=0.001, maxIterations=300):
             return guess
         
         jacobian = getJacobian(arm, guess)
-        lam = 1e-3
+        lam = 1e-2
         J = jacobian
-        invJ = J.T @ np.linalg.inv(J @ J.T + lam * np.eye(6))
+        invJ = J.T @ np.linalg.inv(J @ J.T + (lam**2) * np.eye(6))
 
-        alpha = 0.5
+        alpha = 0.1
         guess += alpha * (invJ @ error)
 
-        print("Guess " + str(i + 1) + ": " + str(guess))
+        if printOut:
+            print("Guess " + str(i + 1) + ": " + str(guess))
     
     raise ValueError("Could not find a solution within the maximum number of iterations")

@@ -18,7 +18,7 @@ Arm.append(arm.link(0.5, 0, 0,  math.pi/2))
 Arm.append(arm.link(0, 0, 3, 0))
 Arm.append(arm.link(0, 0, 3,  0))
 Arm.append(arm.link(3, 0, 0,  math.pi/2))
-Arm.append(arm.link(0, 0, 0, -math.pi/2))
+Arm.append(arm.link(1, 0, 0, -math.pi/2))
 Arm.append(arm.link(3, 0, 0,  0))
 
 
@@ -57,32 +57,17 @@ path1.addP(path.point(a, a, 1, math.pi, 0, math.pi))
 
 path1.addP(path.point(a, a, 3, math.pi, math.pi/2, math.pi))
 path1.addP(path.point(0, a, 3, math.pi, math.pi/2, math.pi))
+#path1.addP(path.point(a, a, -1, math.pi, 0, math.pi))
 
 
+PointsPerSecond = 100       # the number of points along a line per second of movement (based on the speed)
+UnitsPerSecond = 20         # the speed at which the endeffector will move along the path in units per second
 
-ps1 = path.pointSet(path1, Arm, "p2p",100,10)
+ps1 = path.pointSet(path1, Arm, "smooth",PointsPerSecond,UnitsPerSecond)
 pathPoints = ps1.updateCheck()
 
 print("Generate P2P")
 
 ps1.generatePoints()
 
-ps1.dispPath()
-
-
-
-
-
-
-"""
-print("Printing ALL points")
-print("")
-ps1.printPoints()
-ps1.printAllPoints()
-
-ps1Angles = ps1.getPathAngles()
-print("Print Angles")
-print("")
-for row in ps1Angles:
-    print(str(row))
-"""
+ps1.dispPath(frameRate=100,margin=0.5)
