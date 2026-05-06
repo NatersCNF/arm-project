@@ -41,6 +41,23 @@ def getForward(arm, values):
     
     return transform
 
+def getArmTransform(arm,values):
+    linkNum = len(arm)
+    numVal = len(values)
+    if linkNum != numVal:
+        raise ValueError("You need to present the same number of joint values as there are joints")
+
+    transform = []
+
+    for link, value in zip(arm, values):
+        curT = link.getTransform(value)
+        transform.append(curT)
+    
+    for i in range(linkNum - 1): # i is the previous link, so the 2nd joint is 1, or i = 0
+        transform[i + 1] = transform[i] @ transform[i + 1]
+    
+    return transform
+
 def getAllPos(arm, values):
     positions = []
     transform = np.eye(4)
@@ -99,6 +116,11 @@ def getJacobian(arm, values, epsilon=0.00001):
 def getAngleOG(arm, P, guess=None,printOut=False,tol=0.001, maxIterations=300):
     x, y, z, roll, pitch, yaw = P
 
+    maxIterations = int(len(arm) * 50)
+
+    if maxIterations < 200:
+        maxIterations = 200
+    
     targetPos = np.array([x, y, z])
 
     Rx = np.array([
