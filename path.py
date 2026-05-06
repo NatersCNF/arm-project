@@ -67,11 +67,14 @@ class pointSet:
         
         self.updateCheck()
     
-    def dispPath(self, printToggle=False, frameRate=60,margin=2,labelToggle=True):
-        ps1angles = self.getPathAngles(printToggle)
+    def dispPath(self, printToggle=False, frameRate=60,margin=2,labelToggle=True,keyToggle=False):
+        keyPoints = np.array(self.path.keyPos)
+        keyPoints = keyPoints[:, 0:3]
+
+        PSangles = self.getPathAngles(printToggle)
 
         armPositions = []
-        for angle in ps1angles:
+        for angle in PSangles:
             armPositions.append(getAllPos(self.Arm,angle))
         
         midPoint = []
@@ -147,21 +150,23 @@ class pointSet:
         ax.set_ylabel('Y')
         ax.set_zlabel('Z')
 
-        p1 = np.array([0, 0, 0])
-        p2 = np.array([3, 5, 2])
-
         line, = ax.plot([], [], [], marker='o')
 
-        ALLPOINTS = np.array(self.points)
+        xVec = points[:, 0]
+        yVec = points[:, 1]
+        zVec = points[:, 2]
 
-        vec1x = ALLPOINTS[:, 0]
-        vec1y = ALLPOINTS[:, 1]
-        vec1z = ALLPOINTS[:, 2]
+        xKey = keyPoints[:, 0]
+        yKey = keyPoints[:, 1]
+        zKey = keyPoints[:, 2]
 
 
         limit = 1000
         n = 10
         points = np.arange(-limit, limit + n, n)
+        
+        if keyToggle:
+            ax.scatter(xKey, yKey, zKey, color='orchid', s=50,edgecolors='black', linewidth=2, label='Keypoints', zorder=2)
         
 
         if labelToggle:
@@ -174,7 +179,7 @@ class pointSet:
         ax.plot(0, points, 0, color='g', linewidth=1)
         ax.plot(0, 0, points, color='b', linewidth=1)
 
-        ax.plot(vec1x, vec1y, vec1z)
+        ax.plot(xVec, yVec, zVec)
         ax.set_title("Robot Arm & Path")
 
         
@@ -186,7 +191,8 @@ class pointSet:
             updateRoboLine,
             frames=len(armPositions),
             fargs=(armPositions, line, labels, midPoint),
-            interval=intervalFix
+            interval=intervalFix,
+            blit=True
         )
 
         plt.show()

@@ -1,6 +1,7 @@
 import sys
 import os
 
+
 # Adds the parent directory to the system path
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
@@ -57,11 +58,11 @@ path1.addP(path.point(a, a, 1, math.pi, 0, math.pi))
 
 path1.addP(path.point(a, a, 3, math.pi, math.pi/2, math.pi))
 path1.addP(path.point(0, a, 3, math.pi, math.pi/2, math.pi))
-#path1.addP(path.point(a, a, -1, math.pi, 0, math.pi))
+path1.addP(path.point(a, a, -1, math.pi, 0, math.pi))
 
 
 PointsPerSecond = 100       # the number of points along a line per second of movement (based on the speed)
-UnitsPerSecond = 20         # the speed at which the endeffector will move along the path in units per second
+UnitsPerSecond = 5         # the speed at which the endeffector will move along the path in units per second
 
 ps1 = path.pointSet(path1, Arm, "smooth",PointsPerSecond,UnitsPerSecond)
 pathPoints = ps1.updateCheck()
@@ -70,4 +71,4 @@ print("Generate P2P")
 
 ps1.generatePoints()
 
-ps1.dispPath(frameRate=100,margin=0.5)
+ps1.dispPath(frameRate=100,margin=0.5,keyToggle=False,labelToggle=False)
