@@ -58,6 +58,14 @@ def getArmTransform(arm,values):
     
     return transform
 
+def getAllTransform(arm,valueSet):
+    allTransforms = []
+    for value in valueSet:
+        allTransforms.append(getArmTransform(arm,value))
+    
+    return np.array(allTransforms)
+
+
 def getAllPos(arm, values):
     positions = []
     transform = np.eye(4)
@@ -187,3 +195,21 @@ def getAngleOG(arm, P, guess=None,printOut=False,tol=0.001, maxIterations=300):
             print("Guess " + str(i + 1) + ": " + str(guess))
     
     raise ValueError("Could not find a solution within the maximum number of iterations")
+
+def getRotPos(transforms):
+    rotationAxes = []
+    for transform in transforms:
+        x = transform[0][2]
+        y = transform[1][2]
+        z = transform[2][2]
+        rotationAxes.append([x, y, z])
+    
+    return rotationAxes
+
+def getAllRotPos(arm,valueSet):
+    allTransforms = getAllTransform(arm,valueSet)
+    allRotationAxes = []
+    for transform in allTransforms:
+        allRotationAxes.append(getRotPos(transform))
+    
+    return allRotationAxes

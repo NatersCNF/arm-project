@@ -5,6 +5,10 @@ import matplotlib.pyplot as plt
 from mpl_toolkits import mplot3d
 import matplotlib.animation as animation
 
+
+
+
+
 class point:
     def __init__(self, x=0, y=0, z=0, roll=0, pitch=0, yaw=0):
         self.pos = [x, y, z]
@@ -67,135 +71,30 @@ class pointSet:
         
         self.updateCheck()
     
-    def dispPath(self, printToggle=False, frameRate=60,margin=2,labelToggle=True,keyToggle=False):
-        keyPoints = np.array(self.path.keyPos)
-        keyPoints = keyPoints[:, 0:3]
+    def getPathData(self, printToggle=False): # used for plotting commands
+        angles = self.getPathAngles(printToggle)
+        return self.Arm, angles, self.points, self.path.keyPos
 
-        PSangles = self.getPathAngles(printToggle)
 
-        armPositions = []
-        for angle in PSangles:
-            armPositions.append(getAllPos(self.Arm,angle))
-        
-        midPoint = []
-        armPointNum = len(armPositions[0])
+    def applyTransform(self, meshItem, P1, P2):
+        vec = P2 - P1
+        normLength = np.linalg.norm(vec)
+        meshItem.resetTransform()
 
-        for position in armPositions:
-            mid = []
-            for i in range(armPointNum - 1):
-                midCur = [0, 0, 0]
-                midCur[0] = (position[i][0] + position[i + 1][0]) / 2
-                midCur[1] = (position[i][1] + position[i + 1][1]) / 2
-                midCur[2] = (position[i][2] + position[i + 1][2]) / 2
-                mid.append(midCur)
-            midPoint.append(mid)
-        
-        labels = []
-        
-
-        def updateRoboLine(frame, armPositions, line, labels, midPoint):
-            pos = armPositions[frame]
+        if normLength > 0:
+            zAxis = np.array([0, 0, 1])
+            target = vec / normLength
+            dot = np.dot(zAxis, target)
             
-            cleanPos = [list(p[:3]) for p in pos]
-            cleanPos.insert(0, [0, 0, 0])
-            pos = np.array(cleanPos)
-            
-            x = pos[:, 0]
-            y = pos[:, 1]
-            z = pos[:, 2]
-            
-            line.set_data(x, y)
-            line.set_3d_properties(z)
-            
-            if labelToggle and labels:
-                for i, label in enumerate(labels):
-                    frameMid = midPoint[frame][i]
-                    label.set_position((frameMid[0], frameMid[1]))
-                    label.set_3d_properties(frameMid[2], zdir=(1, 1, 0))
-                    
-                return [line] + labels
-            
-            
-            return [line]
+            if dot < -0.999999:
+                meshItem.rotate(180, 0, 1, 0)
+            else:
+                cross = np.cross(zAxis, target)
+                angle = np.degrees(np.arccos(np.clip(dot, -1.0, 1.0)))
 
-
-        fig = plt.figure()
-        ax = fig.add_subplot(projection="3d")
-
-        points = np.array(self.points)
-        PathLim = np.array([0, 0, 0, 0, 0, 0]) #xmin, xmax, ymin, ymax, zmin, zmax
-
-        armLim = np.array([0, 0, 0, 0, 0, 0])  # same as pathlim
-        armPosNP = np.array(armPositions)      
-        
-        for i in range(3):
-            PathLim[i * 2] = points[:, i].min()
-            PathLim[(i * 2) + 1] = points[:, i].max()
-
-            armLim[i * 2] = armPosNP[:, :, i].min()
-            armLim[(i * 2) + 1] = armPosNP[:, :, i].max()
-        
-        xMin, xMax = min(PathLim[0], armLim[0]), max(PathLim[1], armLim[1])
-        yMin, yMax = min(PathLim[2], armLim[2]), max(PathLim[3], armLim[3])
-        zMin, zMax = min(PathLim[4], armLim[4]), max(PathLim[5], armLim[5])
-
-
-        ax.set_xlim(xMin - margin, xMax + margin)
-        ax.set_ylim(yMin - margin, yMax + margin)
-        ax.set_zlim(zMin - margin, zMax + margin)
-
-        ax.set_box_aspect([1,1,1])
-        
-        ax.set_xlabel('X')
-        ax.set_ylabel('Y')
-        ax.set_zlabel('Z')
-
-        line, = ax.plot([], [], [], marker='o')
-
-        xVec = points[:, 0]
-        yVec = points[:, 1]
-        zVec = points[:, 2]
-
-        xKey = keyPoints[:, 0]
-        yKey = keyPoints[:, 1]
-        zKey = keyPoints[:, 2]
-
-
-        limit = 1000
-        n = 10
-        points = np.arange(-limit, limit + n, n)
-        
-        if keyToggle:
-            ax.scatter(xKey, yKey, zKey, color='orchid', s=50,edgecolors='black', linewidth=2, label='Keypoints', zorder=2)
-        
-
-        if labelToggle:
-            for i in range(armPointNum - 1):
-                mid = midPoint[0][i]
-                startLabel = ax.text(mid[0], mid[1], mid[2], str(i+1), color='red')
-                labels.append(startLabel)
-
-        ax.plot(points, 0, 0, color='r', linewidth=1)
-        ax.plot(0, points, 0, color='g', linewidth=1)
-        ax.plot(0, 0, points, color='b', linewidth=1)
-
-        ax.plot(xVec, yVec, zVec)
-        ax.set_title("Robot Arm & Path")
-
-        
-
-        intervalFix = 1000 / frameRate
-
-        ani = animation.FuncAnimation(
-            fig,
-            updateRoboLine,
-            frames=len(armPositions),
-            fargs=(armPositions, line, labels, midPoint),
-            interval=intervalFix,
-            blit=True
-        )
-
-        plt.show()
+                if np.linalg.norm(cross) > 1e-6:
+                    meshItem.rotate(angle, *cross)
+            meshItem.translate(*P1)
 
     def updatenP(self):
         self.nP = len(self.path.keyPos)
@@ -441,3 +340,36 @@ def getPatT(t, Pi, Pi1, mi, mi1):
     P = P00 + P10 + P01 + P11
     
     return P.tolist()
+
+def getRotAxisPoints(Arm,valueSet,armPositions,cLength=1):
+    halfLen = cLength / 2
+    allRotAxes = getAllRotPos(Arm,valueSet)
+    jointPointSet = []
+
+    for frameAxes, framePos in zip(allRotAxes, armPositions):
+        frame = []
+
+        for i in range(len(frameAxes)):
+            pos = np.array(framePos[i + 1])
+            rotAxis = np.array(frameAxes[i])
+
+            modified = rotAxis * halfLen
+
+            start = pos + modified
+            end = pos - modified
+
+            frame.append([start, end])
+        
+        jointPointSet.append(frame)
+    
+    return jointPointSet
+
+    helper = []
+    for i in range(len(P1set)):
+            P1 = P1set[i]
+            P2 = P2set[i]
+            linkMesh = getCylinderMesh(P1, P2, type)
+            if linkMesh:
+                view.addItem(linkMesh)
+                helper.append(linkMesh)
+    return np.array(helper)

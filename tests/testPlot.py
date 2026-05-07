@@ -1,18 +1,83 @@
+import sys
 import numpy as np
-import matplotlib.pyplot as plt
-from mpl_toolkits import mplot3d
+
+from PyQt6.QtWidgets import QApplication
+from PyQt6.QtCore import QTimer
+import pyqtgraph.opengl as gl
 
 
-ax = plt.axes(projection="3d")
+app = QApplication(sys.argv)
 
-p1 = np.array([0, 0, 0])
-p2 = np.array([3, 5, 2])
+view = gl.GLViewWidget()
+view.show()
+view.setWindowTitle("3D Point Drawer")
+view.setCameraPosition(distance=20)
 
-vec1x = np.linspace(p1[0], p2[0], 100)
-vec1y = np.linspace(p1[1], p2[1], 100)
-vec1z = np.linspace(p1[2], p2[2], 100)
 
-ax.plot(vec1x, vec1y, vec1z)
-ax.set_title("test vec")
+grid = gl.GLGridItem()
+grid.scale(1, 1, 1)
+view.addItem(grid)
 
-plt.show()
+
+points = []
+
+
+scatter = gl.GLScatterPlotItem(
+    pos=np.empty((0, 3)),
+    size=10,
+    color=(1, 0, 0, 1)
+)
+
+view.addItem(scatter)
+
+
+line = gl.GLLinePlotItem(
+    pos=np.empty((0, 3)),
+    color=(0, 1, 1, 1),
+    width=2,
+    antialias=True
+)
+
+view.addItem(line)
+
+
+def update_plot():
+    if len(points) == 0:
+        return
+
+    pos = np.array(points)
+
+    scatter.setData(pos=pos)
+    line.setData(pos=pos)
+
+
+
+def input_loop():
+    print("\nEnter point as: x y z")
+    print("Example: 3 2 5")
+    print("Type 'q' to quit.\n")
+
+    while True:
+        user = input("Point: ")
+
+        if user.lower() == 'q':
+            break
+
+        try:
+            x, y, z = map(float, user.split())
+
+            points.append([x, y, z])
+
+            update_plot()
+
+            print(f"Added point: ({x}, {y}, {z})")
+
+        except:
+            print("Invalid input")
+
+
+
+QTimer.singleShot(100, input_loop)
+
+
+sys.exit(app.exec())
