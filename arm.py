@@ -60,11 +60,11 @@ def getArmTransform(arm,values):
 
 def getAllTransform(arm,valueSet):
     allTransforms = []
+
     for value in valueSet:
         allTransforms.append(getArmTransform(arm,value))
     
     return np.array(allTransforms)
-
 
 def getAllPos(arm, values):
     positions = []

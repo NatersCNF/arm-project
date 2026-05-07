@@ -9,6 +9,10 @@ import matplotlib.animation as animation
 
 from arm import getAllPos, getAllRotPos
 
+jointR = 0.3
+
+
+
 # PyQTgraph main function & sub-functions
 def dispPyqt(Arm, PSangles, Points, keyPos, frameRate=60,margin=2,labelToggle=True,keyToggle=False):
     keyPos = np.array(keyPos)[:, 0:3]
@@ -32,17 +36,28 @@ def dispPyqt(Arm, PSangles, Points, keyPos, frameRate=60,margin=2,labelToggle=Tr
     view.addItem(pathLine)
     view.addItem(armLine)
 
+    markers = jointLines(jointPoints, armPositions)
+    markerLine = gl.GLLinePlotItem(pos=markers[0], color=(1, 1, 0, 1), width=2, mode='lines')
+    view.addItem(markerLine)
+
+    
+
     state = {'curF': 0}
 
     def update():
         f = state['curF']
+        markerLine.setData(pos=markers[f])
         armLine.setData(pos=armPositions[f])
 
         for i in range(len(linkCylinders)):
-            applyTransform(linkCylinders[i], linkP1set[f][i], linkP2set[f][i])
+            P1, P2 = linkP1set[f][i], linkP2set[f][i]
+            applyTransform(linkCylinders[i], P1, P2)
         
         for i in range(len(jointCylinders)):
-            applyTransform(jointCylinders[i], jointP1set[f][i], jointP2set[f][i])
+            P1, P2 = jointP1set[f][i], jointP2set[f][i]
+            applyTransform(jointCylinders[i][0], P1, P2)
+            applyTransform(jointCylinders[i][1], P1, P2)
+            applyTransform(jointCylinders[i][2], P2, P1)
 
         state['curF'] = (f + 1) % len(armPositions)
     
@@ -70,20 +85,30 @@ def dispPyqt(Arm, PSangles, Points, keyPos, frameRate=60,margin=2,labelToggle=Tr
     app.exec()
  
 def getCylinderMesh(P1, P2, type):
+    vec = P2 - P1
+    normLength = np.linalg.norm(vec)
+
+    linkageR = 0.2
+
     if type == "link":
         color=(0.5, 0.8, 1.0, 1.0)
-        radius = 0.2
+        radiusC = linkageR
+        Data = gl.MeshData.cylinder(rows=1, cols=20, radius=[radiusC, radiusC], length=normLength)
     
     elif type == "joint":
         color=(0.6, 0.98, 0.6, 1.0)
-        radius = 0.3
+        radiusC = jointR
+        Data = gl.MeshData.cylinder(rows=1, cols=20, radius=[radiusC, radiusC], length=normLength)
     
-    vec = P2 - P1
-    normLength = np.linalg.norm(vec)
-    if normLength == 0:
+    elif type == "circle":
+        color=(0.6, 0.98, 0.6, 1.0)
+        radiusC = jointR
+        Data = gl.MeshData.cylinder(rows=1, cols=20, radius=[radiusC, 0], length=0.01)
+    
+    
+    if normLength == 0 and type != "circle":
         return None
     
-    Data = gl.MeshData.cylinder(rows=10,cols=20,radius=[radius, radius],length=normLength)
     mesh = gl.GLMeshItem(meshdata=Data, smooth=True, color=color,shader='shaded')
 
     zAxis = np.array([0, 0, 1])
@@ -102,22 +127,41 @@ def getCylinderMesh(P1, P2, type):
 
 def makeMeshHelperSet(P1set, P2set, view, type="link"):
     helper = []
+
     for i in range(len(P1set)):
             P1 = P1set[i]
             P2 = P2set[i]
             linkMesh = getCylinderMesh(P1, P2, type)
+            
             if linkMesh:
                 view.addItem(linkMesh)
-                helper.append(linkMesh)
+                if type == "joint":
+                    circle1 = getCylinderMesh(P1, P2, "circle")
+                    circle2 = getCylinderMesh(P2, P1, "circle")
+
+                    view.addItem(circle1)
+                    view.addItem(circle2)
+
+                    helper.append([linkMesh, circle1, circle2])
+
+                else:
+                    helper.append(linkMesh)
+                    
     return np.array(helper)
 
 def getRotAxisPoints(Arm,valueSet,armPositions,cLength=0.5):
     halfLen = cLength / 2
     allRotAxes = getAllRotPos(Arm,valueSet)
     jointPointSet = []
-
+    
     for frameAxes, framePos in zip(allRotAxes, armPositions):
         frame = []
+        ground = np.array(framePos[0])
+        groundAxis = np.array([0, 0, 1])
+        groundAxis = groundAxis * halfLen
+        start = ground + groundAxis
+        end = ground + groundAxis
+        frame.append([ground + groundAxis, ground - groundAxis])
 
         for i in range(len(frameAxes)):
             pos = np.array(framePos[i + 1])
@@ -153,6 +197,43 @@ def applyTransform(meshItem, P1, P2):
             if np.linalg.norm(cross) > 1e-6:
                 meshItem.rotate(angle, *cross)
         meshItem.translate(*P1)
+
+def jointLines(jointPoints, armPositions):
+    frameNum = len(armPositions)
+
+    uVec = []
+
+    for frame in armPositions:
+        numJoints = len(frame) - 1
+        uFrame = []
+        uFrame.append([1,0,0]) # the direction of the base is contrained to be pointing somewhere in the xy plane, so any unit vector in there would do (as long as it's stationary)
+        for j in range(numJoints):
+            vec = frame[j + 1] - frame[j]
+            uvec = vec / np.linalg.norm(vec)
+            uFrame.append(uvec)
+        
+        uVec.append(uFrame)
+    
+    uVec = np.array(uVec) * jointR
+
+    lines = []    
+    for framePoint, frameUvec in zip(jointPoints, uVec):
+        frameLines = []
+        
+        jointnum = len(framePoint)
+        for i in range(jointnum - 1):
+            P1 = framePoint[i][0]
+            P2 = framePoint[i][1]
+
+            vecIn = frameUvec[i]
+            vecOut = frameUvec[i + 1]
+            
+            frameLines.extend([P1, P1 + vecIn, P2, P2 + vecIn])
+            frameLines.extend([P1, P1 + vecOut, P2, P2 + vecOut])
+        
+        lines.append(np.array(frameLines))
+    return lines
+
 
 # MatPlotLib main function
 def dispMatplot(Arm, PSangles, Points, keyPos, frameRate=60,margin=2,labelToggle=True,keyToggle=False):
