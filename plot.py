@@ -18,6 +18,7 @@ def dispPyqt(Arm, PSangles, Points, keyPos, frameRate=60,margin=2,labelToggle=Tr
     keyPos = np.array(keyPos)[:, 0:3]
     pathPoints = np.array(Points)[:, :3]
     armPositions = np.array([getAllPos(Arm, angle) for angle in PSangles])
+    endPos = armPositions[:, -1, :]
 
     app = pg.mkQApp("Robot Arm")
     view = gl.GLViewWidget()
@@ -40,6 +41,13 @@ def dispPyqt(Arm, PSangles, Points, keyPos, frameRate=60,margin=2,labelToggle=Tr
     markerLine = gl.GLLinePlotItem(pos=markers[0], color=(1, 1, 0, 1), width=2, mode='lines')
     view.addItem(markerLine)
 
+    sphereData = gl.MeshData.sphere(rows=20,cols=20,radius=(jointR * 1.3))
+    sphereMesh = gl.GLMeshItem(meshdata=sphereData,smooth=True,color=(1, 0.2, 0.2, 1),shader='shaded')
+    sphereMesh.translate(*endPos[0])
+    view.addItem(sphereMesh)
+
+
+
     
 
     state = {'curF': 0}
@@ -48,6 +56,9 @@ def dispPyqt(Arm, PSangles, Points, keyPos, frameRate=60,margin=2,labelToggle=Tr
         f = state['curF']
         markerLine.setData(pos=markers[f])
         armLine.setData(pos=armPositions[f])
+
+        sphereMesh.resetTransform()
+        sphereMesh.translate(*endPos[f])
 
         for i in range(len(linkCylinders)):
             P1, P2 = linkP1set[f][i], linkP2set[f][i]
@@ -199,14 +210,12 @@ def applyTransform(meshItem, P1, P2):
         meshItem.translate(*P1)
 
 def jointLines(jointPoints, armPositions):
-    frameNum = len(armPositions)
-
     uVec = []
 
     for frame in armPositions:
         numJoints = len(frame) - 1
         uFrame = []
-        uFrame.append([1,0,0]) # the direction of the base is contrained to be pointing somewhere in the xy plane, so any unit vector in there would do (as long as it's stationary)
+        uFrame.append([1,0,0])
         for j in range(numJoints):
             vec = frame[j + 1] - frame[j]
             uvec = vec / np.linalg.norm(vec)
@@ -216,7 +225,7 @@ def jointLines(jointPoints, armPositions):
     
     uVec = np.array(uVec) * jointR
 
-    lines = []    
+    lines = []
     for framePoint, frameUvec in zip(jointPoints, uVec):
         frameLines = []
         
