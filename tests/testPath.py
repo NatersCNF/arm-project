@@ -61,9 +61,9 @@ path1.addP(path.point(a, a, 5, math.pi, math.pi/2, math.pi))
 path1.addP(path.point(0, a, 5, math.pi, math.pi/2, math.pi))
 path1.addP(path.point(0, a, -1, math.pi, -math.pi/2, math.pi))
 path1.addP(path.point(a, a, 1, math.pi, 0, math.pi))
+path1.addP(path.point(a, a, 2-heightDiff, math.pi, 0, math.pi))
 
-
-PointsPerSecond = 20       # the number of points along a line per second of movement (based on the speed, determines animation framerate)
+PointsPerSecond = 200       # the number of points along a line per second of movement (based on the speed, determines animation framerate)
 UnitsPerSecond = 5         # the speed at which the endeffector will move along the path in units per second
 
 ps1 = path.pointSet(path1, Arm, "p2p",PointsPerSecond,UnitsPerSecond)

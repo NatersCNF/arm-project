@@ -35,6 +35,7 @@ jointR = 0.3
 
 
 def dispPyqt(Arm, PSangles, Points, keyPos, margin=2,PPs=30):
+    axisStroke = 3
     keyPos = np.array(keyPos)[:, 0:3]
     pathPoints = np.array(Points)[:, :3]
     armPositions = np.array([getAllPos(Arm, angle) for angle in PSangles])
@@ -49,28 +50,47 @@ def dispPyqt(Arm, PSangles, Points, keyPos, margin=2,PPs=30):
     jointP1set, jointP2set = jointPoints[:, :, 0, :], jointPoints[:, :, 1, :]
     linkP1set, linkP2set = armPositions[:, :-1, :], armPositions[:, 1:, :]
 
-    linkCylinders = makeMeshHelperSet(P1set=linkP1set[0], P2set=linkP2set[0], view=view, type="link")
-    jointCylinders = makeMeshHelperSet(P1set=jointP1set[0], P2set=jointP2set[0], view=view, type="joint")
-
+    # path
     pathLine = gl.GLLinePlotItem(pos=pathPoints,color=(1.0, 0.65, 0.0, 1.0),width=1)
     armLine = gl.GLLinePlotItem(pos=armPositions[0],color=(0.5, 0.8, 1.0, 1.0),width=1)
     view.addItem(pathLine)
     view.addItem(armLine)
 
+    # arm links
+    linkCylinders = makeMeshHelperSet(P1set=linkP1set[0], P2set=linkP2set[0], view=view, type="link")
+    
+    
+    # joints
+    jointCylinders = makeMeshHelperSet(P1set=jointP1set[0], P2set=jointP2set[0], view=view, type="joint") 
     markers = jointLines(Arm=Arm,valueSet=PSangles,jointPoints=jointPoints,armPositions=armPositions)
     markerLine = gl.GLLinePlotItem(pos=markers[0], color=(1, 1, 0, 1), width=2, mode='lines')
     view.addItem(markerLine)
 
-    sphereData = gl.MeshData.sphere(rows=20,cols=20,radius=(jointR * 1.3))
+    # endeffector
+    sphereData = gl.MeshData.sphere(rows=20,cols=20,radius=(jointR * 1.1))
     sphereMesh = gl.GLMeshItem(meshdata=sphereData,smooth=True,color=(1, 0.2, 0.2, 1),shader='shaded')
     sphereMesh.translate(*endPos[0])
     view.addItem(sphereMesh)
+
+    origins = getJointOrigin(Arm=Arm,valueSet=PSangles,length=2)
+    xOriginLine = gl.GLLinePlotItem(pos=origins[0][0], color=(1, 0, 0, 1), width=axisStroke, mode='lines')
+    yOriginLine = gl.GLLinePlotItem(pos=origins[0][1], color=(0, 1, 0, 1), width=axisStroke, mode='lines')
+    zOriginLine = gl.GLLinePlotItem(pos=origins[0][2], color=(0, 0, 1, 1), width=axisStroke, mode='lines')
+    
+    view.addItem(xOriginLine)
+    view.addItem(yOriginLine)
+    view.addItem(zOriginLine)
 
     state = {'curF': 0}
 
     def update():
         f = state['curF']
         markerLine.setData(pos=markers[f])
+        
+        xOriginLine.setData(pos=origins[f][0])
+        yOriginLine.setData(pos=origins[f][1])
+        zOriginLine.setData(pos=origins[f][2])
+
         armLine.setData(pos=armPositions[f])
 
         sphereMesh.resetTransform()
@@ -98,8 +118,6 @@ def dispPyqt(Arm, PSangles, Points, keyPos, margin=2,PPs=30):
     xMax = max(np.max(np.abs(armPositions[:, :, 0])), np.max(np.abs(pathPoints[:, 0]))) + margin
     yMax = max(np.max(np.abs(armPositions[:, :, 1])), np.max(np.abs(pathPoints[:, 1]))) + margin
     zMax = max(np.max(np.abs(armPositions[:, :, 2])), np.max(np.abs(pathPoints[:, 2]))) + margin
-
-    axisStroke = 3
 
     x_axis = gl.GLLinePlotItem(pos=np.array([[0,0,0], [xMax,0,0]]), color=(1,0,0,1), width=axisStroke)
     y_axis = gl.GLLinePlotItem(pos=np.array([[0,0,0], [0,yMax,0]]), color=(0,1,0,1), width=axisStroke)
@@ -282,6 +300,30 @@ def pathLength(armPositions):
         displacement = np.linalg.norm(vec)
         distance += displacement
     return distanceTravelled
+
+def getJointOrigin(Arm, valueSet, armPositions=None,length=2,joint=-1):
+    if armPositions is None:
+        armPositions = np.array([getAllPos(Arm, angle) for angle in valueSet])
+    
+    rotationMatrices = getRotationMatrices(arm=Arm,valueSet=valueSet)
+    
+    jointRotation = rotationMatrices[:, joint, :, :] * length
+    jointPos = armPositions[:, joint, :]
+
+    origins = []
+    for pos, dir in zip(jointPos,jointRotation):
+        xOrigin = pos + dir[:, 0]
+        yOrigin = pos + dir[:, 1]
+        zOrigin = pos + dir[:, 2]
+
+        xVec = np.array([pos, xOrigin])
+        yVec = np.array([pos, yOrigin])
+        zVec = np.array([pos, zOrigin])
+
+
+        origins.append([xVec, yVec, zVec])
+
+    return origins
 
 # MatPlotLib main function
 def dispMatplot(Arm, PSangles, Points, keyPos, PPs=30,margin=2,labelToggle=True,keyToggle=False):

@@ -188,16 +188,15 @@ class pointSet:
             initial = self.path.keyPos[i]
             final = self.path.keyPos[i + 1]
             currentLength = self.uvec[i][3]
-            direction = self.uvec[i][:3]
-            n = int(currentLength * (self.PPs / self.speed))
+            direction = self.uvec[i][:3]            
 
             pos_diff = np.linalg.norm(np.array(final[:3]) - np.array(initial[:3]))
             rot_diff = np.linalg.norm(np.array(final[3:]) - np.array(initial[3:]))
 
-            # decide interpolation count based on whichever is larger
             metric = max(pos_diff, rot_diff)
 
             n = int(metric * (self.PPs / self.speed))
+            n = max(1, n)
 
             interval = currentLength / n
 
@@ -250,6 +249,7 @@ class pointSet:
             currentLength = math.sqrt((posx ** 2) + (posy ** 2) + (posz ** 2))
 
             PPL = int(currentLength * (self.PPs / self.speed))
+            PPL = max(1, PPL)
 
             Pi = self.path.keyPos[i][:3]
             Pi1 = self.path.keyPos[i + 1][:3]
