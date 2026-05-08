@@ -217,3 +217,8 @@ def getAllRotPos(arm,valueSet):
         allRotationAxes.append(getRotPos(transform))
     
     return allRotationAxes
+
+def getRotationMatrices(arm,valueSet):
+    allTransforms = np.array(getAllTransform(arm,valueSet))
+    rotationMatrices = allTransforms[:, :, :3, :3]
+    return rotationMatrices

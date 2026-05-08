@@ -7,14 +7,34 @@ from PyQt6 import QtCore
 import matplotlib.pyplot as plt
 import matplotlib.animation as animation
 
-from arm import getAllPos, getAllRotPos
+from arm import getAllPos, getAllRotPos, getRotationMatrices
 
-jointR = 0.3
+def dispPath(Arm, Angles, Points, PPs, keyPos):
+    print("Done calculating!")
+    print("")
+    print("Which display method would you like to use?")
+    print("1. PyQTgraph")
+    print("2. MatPlotLib")
 
+
+    while True:
+        usr = input()
+
+        if usr == "":
+            break
+
+        elif usr == "1":
+            dispPyqt(Arm=Arm, PSangles=Angles, Points=Points,keyPos=keyPos,PPs=PPs)
+
+        elif usr == "2":
+            dispMatplot(Arm=Arm, PSangles=Angles, Points=Points,keyPos=keyPos,PPs=PPs)
 
 
 # PyQTgraph main function & sub-functions
-def dispPyqt(Arm, PSangles, Points, keyPos, frameRate=60,margin=2,labelToggle=True,keyToggle=False):
+jointR = 0.3
+
+
+def dispPyqt(Arm, PSangles, Points, keyPos, margin=2,PPs=30):
     keyPos = np.array(keyPos)[:, 0:3]
     pathPoints = np.array(Points)[:, :3]
     armPositions = np.array([getAllPos(Arm, angle) for angle in PSangles])
@@ -37,7 +57,7 @@ def dispPyqt(Arm, PSangles, Points, keyPos, frameRate=60,margin=2,labelToggle=Tr
     view.addItem(pathLine)
     view.addItem(armLine)
 
-    markers = jointLines(jointPoints, armPositions)
+    markers = jointLines(Arm=Arm,valueSet=PSangles,jointPoints=jointPoints,armPositions=armPositions)
     markerLine = gl.GLLinePlotItem(pos=markers[0], color=(1, 1, 0, 1), width=2, mode='lines')
     view.addItem(markerLine)
 
@@ -45,10 +65,6 @@ def dispPyqt(Arm, PSangles, Points, keyPos, frameRate=60,margin=2,labelToggle=Tr
     sphereMesh = gl.GLMeshItem(meshdata=sphereData,smooth=True,color=(1, 0.2, 0.2, 1),shader='shaded')
     sphereMesh.translate(*endPos[0])
     view.addItem(sphereMesh)
-
-
-
-    
 
     state = {'curF': 0}
 
@@ -74,7 +90,7 @@ def dispPyqt(Arm, PSangles, Points, keyPos, frameRate=60,margin=2,labelToggle=Tr
     
     timer = QtCore.QTimer()
     timer.timeout.connect(update)
-    timer.start(int(1000/frameRate))
+    timer.start(int(1000/PPs))
 
     zgrid = gl.GLGridItem()
     view.addItem(zgrid)
@@ -139,7 +155,11 @@ def getCylinderMesh(P1, P2, type):
 def makeMeshHelperSet(P1set, P2set, view, type="link"):
     helper = []
 
-    for i in range(len(P1set)):
+    numCylinder = len(P1set)
+    if type == "joint":
+        numCylinder -= 1
+
+    for i in range(numCylinder):
             P1 = P1set[i]
             P2 = P2set[i]
             linkMesh = getCylinderMesh(P1, P2, type)
@@ -158,7 +178,7 @@ def makeMeshHelperSet(P1set, P2set, view, type="link"):
                 else:
                     helper.append(linkMesh)
                     
-    return np.array(helper)
+    return np.array(helper,dtype=object)
 
 def getRotAxisPoints(Arm,valueSet,armPositions,cLength=0.5):
     halfLen = cLength / 2
@@ -209,7 +229,34 @@ def applyTransform(meshItem, P1, P2):
                 meshItem.rotate(angle, *cross)
         meshItem.translate(*P1)
 
-def jointLines(jointPoints, armPositions):
+def jointLines(Arm,valueSet,jointPoints=None, armPositions=None):
+    if armPositions is None:
+        armPositions = np.array([getAllPos(Arm, angle) for angle in valueSet])
+    
+    if jointPoints is None:
+        jointPoints = np.array(getRotAxisPoints(Arm=Arm,valueSet=valueSet,armPositions=armPositions))
+
+    armDirections = np.array(getArmDirections(armPositions)) * jointR
+    rotationMatrices = getRotationMatrices(arm=Arm,valueSet=valueSet)
+
+    lines = []
+    for frame in range(len(valueSet)):
+        frameLines = []
+        numJoints = rotationMatrices.shape[1]
+        
+        for i in range(numJoints):
+            P1 = jointPoints[frame][i][0]
+            P2 = jointPoints[frame][i][1]
+
+            vecIn = armDirections[frame][i]
+            vecOut = rotationMatrices[frame][i][:3, 0] * jointR
+
+            frameLines.extend([P1, P1 + vecIn, P2, P2 + vecIn])
+            frameLines.extend([P1, P1 + vecOut, P2, P2 + vecOut])
+        lines.append(np.array(frameLines))
+    return lines
+
+def getArmDirections(armPositions):
     uVec = []
 
     for frame in armPositions:
@@ -223,29 +270,21 @@ def jointLines(jointPoints, armPositions):
         
         uVec.append(uFrame)
     
-    uVec = np.array(uVec) * jointR
+    return uVec
 
-    lines = []
-    for framePoint, frameUvec in zip(jointPoints, uVec):
-        frameLines = []
-        
-        jointnum = len(framePoint)
-        for i in range(jointnum - 1):
-            P1 = framePoint[i][0]
-            P2 = framePoint[i][1]
-
-            vecIn = frameUvec[i]
-            vecOut = frameUvec[i + 1]
-            
-            frameLines.extend([P1, P1 + vecIn, P2, P2 + vecIn])
-            frameLines.extend([P1, P1 + vecOut, P2, P2 + vecOut])
-        
-        lines.append(np.array(frameLines))
-    return lines
-
+def pathLength(armPositions):
+    endPos = armPositions[:,-1:,:]
+    distanceTravelled = 0
+    for i in range(1, len(armPositions)):
+        oldPos = endPos[i - 1]
+        pos = endPos[i]
+        vec = pos - oldPos
+        displacement = np.linalg.norm(vec)
+        distance += displacement
+    return distanceTravelled
 
 # MatPlotLib main function
-def dispMatplot(Arm, PSangles, Points, keyPos, frameRate=60,margin=2,labelToggle=True,keyToggle=False):
+def dispMatplot(Arm, PSangles, Points, keyPos, PPs=30,margin=2,labelToggle=True,keyToggle=False):
     Points = np.array(Points)
     keyPoints = np.array(keyPos)
     keyPoints = keyPoints[:, 0:3]
@@ -360,7 +399,7 @@ def dispMatplot(Arm, PSangles, Points, keyPos, frameRate=60,margin=2,labelToggle
 
     
 
-    intervalFix = 1000 / frameRate
+    intervalFix = 1000 / PPs
 
     ani = animation.FuncAnimation(
         fig,

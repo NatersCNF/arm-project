@@ -59,30 +59,18 @@ path1.addP(path.point(a, a, 2+heightDiff, math.pi, 0, math.pi))
 
 path1.addP(path.point(a, a, 5, math.pi, math.pi/2, math.pi))
 path1.addP(path.point(0, a, 5, math.pi, math.pi/2, math.pi))
+path1.addP(path.point(0, a, -1, math.pi, -math.pi/2, math.pi))
 path1.addP(path.point(a, a, 1, math.pi, 0, math.pi))
 
 
-PointsPerSecond = 100       # the number of points along a line per second of movement (based on the speed)
+PointsPerSecond = 20       # the number of points along a line per second of movement (based on the speed, determines animation framerate)
 UnitsPerSecond = 5         # the speed at which the endeffector will move along the path in units per second
 
-ps1 = path.pointSet(path1, Arm, "smooth",PointsPerSecond,UnitsPerSecond)
+ps1 = path.pointSet(path1, Arm, "p2p",PointsPerSecond,UnitsPerSecond)
 pathPoints = ps1.updateCheck()
 ps1.generatePoints()
 
 print("Calculating....")
 Parm, Pangles, Ppoints, Pkey = ps1.getPathData()
 
-print("Done calculating!")
-print("")
-print("Which display method would you like to use?")
-print("1. PyQTgraph")
-print("2. MatPlotLib")
-
-
-while True:
-    usr = input()
-    if usr == "1":
-        plot.dispPyqt(Arm=Parm, PSangles=Pangles, Points=Ppoints,keyPos=Pkey)
-
-    elif usr == "2":
-        plot.dispMatplot(Arm=Parm, PSangles=Pangles, Points=Ppoints,keyPos=Pkey)
+plot.dispPath(Arm=Parm,Angles=Pangles,Points=Ppoints,PPs=PointsPerSecond,keyPos=Pkey)

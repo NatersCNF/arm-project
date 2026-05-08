@@ -44,7 +44,7 @@ class path:
         self.addP(P)
             
 class pointSet:
-    def __init__(self, path, Arm, type="p2p", PPs=10, speed=1,live=False):
+    def __init__(self, path, Arm, type="p2p", PPs=30, speed=1,live=False):
         self.nP = 0
         self.speed = speed
         
@@ -74,7 +74,6 @@ class pointSet:
     def getPathData(self, printToggle=False): # used for plotting commands
         angles = self.getPathAngles(printToggle)
         return self.Arm, angles, self.points, self.path.keyPos
-
 
     def applyTransform(self, meshItem, P1, P2):
         vec = P2 - P1
