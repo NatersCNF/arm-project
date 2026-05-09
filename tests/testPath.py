@@ -76,7 +76,7 @@ ps1 = path.pointSet(path1, Arm, "p2p",PointsPerSecond,UnitsPerSecond)
 pathPoints = ps1.updateCheck()
 ps1.generatePoints()
 
-print("Calculating....")
+print("Calculating...")
 Parm, Pangles, Ppoints, Pkey = ps1.getPathData()
 
 plot.dispPath(Arm=Parm,Angles=Pangles,Points=Ppoints,PPs=PointsPerSecond,keyPos=Pkey)   
