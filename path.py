@@ -104,6 +104,8 @@ class pointSet:
 
         elif self.type == "p2p":
             self.generateP2P()
+        
+        print("Number of points: " + str(len(self.points)))
 
     def updateUVec(self):
         self.uvec.clear()
@@ -219,6 +221,7 @@ class pointSet:
                 yaw = round(yaw, 10)
 
                 self.points.append([x, y, z, roll, pitch, yaw])
+
     
     def generateSpline(self):
         self.points.clear()
@@ -271,6 +274,8 @@ class pointSet:
                 self.points.append(pos)
  
     def getPathAngles(self,printToggle=False):
+        
+        printInterval = int(3000 / len(self.Arm))
         angles = []
         angles.append(getAngleOG(self.Arm, self.points[0],printOut=printToggle))
 
@@ -279,6 +284,9 @@ class pointSet:
                 print("NEW POINT "+str(i))
             P = self.points[i]
             angles.append(getAngleOG(self.Arm, P,angles[i-1], printToggle))
+            if i % printInterval == 0:
+                print("Current at " + str(i))
+
         return angles
 
     def printPoints(self, offset=0):

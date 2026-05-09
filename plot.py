@@ -59,7 +59,6 @@ def dispPyqt(Arm, PSangles, Points, keyPos, margin=2,PPs=30):
     # arm links
     linkCylinders = makeMeshHelperSet(P1set=linkP1set[0], P2set=linkP2set[0], view=view, type="link")
     
-    
     # joints
     jointCylinders = makeMeshHelperSet(P1set=jointP1set[0], P2set=jointP2set[0], view=view, type="joint") 
     markers = jointLines(Arm=Arm,valueSet=PSangles,jointPoints=jointPoints,armPositions=armPositions)

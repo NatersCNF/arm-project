@@ -130,25 +130,20 @@ def getAngleOG(arm, P, guess=None,printOut=False,tol=0.001, maxIterations=300):
     
     targetPos = np.array([x, y, z])
 
-    Rx = np.array([
-        [1, 0, 0,],
-        [0, np.cos(roll), -np.sin(roll)],
-        [0, np.sin(roll), np.cos(roll)]
-    ])
+    Salpha = np.sin(yaw)
+    Calpha = np.cos(yaw)
+    
+    Sbeta = np.sin(roll)
+    Cbeta = np.cos(roll)
+    
+    Sgamma = np.sin(pitch)
+    Cgamma = np.cos(pitch)
 
-    Ry = np.array([
-        [np.cos(pitch), 0, np.sin(pitch)],
-        [0, 1, 0],
-        [-np.sin(pitch), 0, np.cos(pitch)]
+    targetR = np.array([
+        [(Calpha * Cbeta), ((Calpha * Sbeta * Sgamma) - (Salpha * Cgamma)), ((Calpha * Sbeta * Cgamma) + (Salpha * Sgamma))],
+        [(Salpha * Cbeta), ((Salpha * Sbeta * Sgamma) + (Calpha * Cgamma)), ((Salpha * Sbeta * Cgamma) - (Calpha * Sgamma))],
+        [(-Sgamma), (Cbeta * Sgamma), (Cbeta * Cgamma)]
     ])
-
-    Rz = np.array([
-        [np.cos(yaw), -np.sin(yaw), 0],
-        [np.sin(yaw), np.cos(yaw), 0],
-        [0, 0, 1],
-    ])
-
-    targetR = Rz @ Ry @ Rx
 
     if guess is None:
         guess = np.zeros(len(arm))
