@@ -32,7 +32,7 @@ def dispPath(Arm, Angles, Points, PPs, keyPos):
 
 # PyQTgraph main function & sub-functions
 jointR = 0.3
-
+jointColumns = 20
 
 def dispPyqt(Arm, PSangles, Points, keyPos, margin=2,PPs=30):
     axisStroke = 3
@@ -61,7 +61,7 @@ def dispPyqt(Arm, PSangles, Points, keyPos, margin=2,PPs=30):
     
     # joints
     jointCylinders = makeMeshHelperSet(P1set=jointP1set[0], P2set=jointP2set[0], view=view, type="joint") 
-    markers = jointLines(Arm=Arm,valueSet=PSangles,jointPoints=jointPoints,armPositions=armPositions)
+    markers = jointLines(Arm=Arm, valueSet=PSangles, jointPoints=jointPoints, armPositions=armPositions)
     markerLine = gl.GLLinePlotItem(pos=markers[0], color=(1, 1, 0, 1), width=2, mode='lines')
     view.addItem(markerLine)
 
@@ -142,12 +142,12 @@ def getCylinderMesh(P1, P2, type):
     elif type == "joint":
         color=(0.6, 0.98, 0.6, 1.0)
         radiusC = jointR
-        Data = gl.MeshData.cylinder(rows=1, cols=20, radius=[radiusC, radiusC], length=normLength)
+        Data = gl.MeshData.cylinder(rows=1, cols=jointColumns, radius=[radiusC, radiusC], length=normLength)
     
     elif type == "circle":
         color=(0.6, 0.98, 0.6, 1.0)
         radiusC = jointR
-        Data = gl.MeshData.cylinder(rows=1, cols=20, radius=[radiusC, 0], length=0.01)
+        Data = gl.MeshData.cylinder(rows=1, cols=jointColumns, radius=[radiusC, 0], length=0.01)
     
     
     if normLength == 0 and type != "circle":
@@ -246,13 +246,7 @@ def applyTransform(meshItem, P1, P2):
                 meshItem.rotate(angle, *cross)
         meshItem.translate(*P1)
 
-def jointLines(Arm,valueSet,jointPoints=None, armPositions=None):
-    if armPositions is None:
-        armPositions = np.array([getAllPos(Arm, angle) for angle in valueSet])
-    
-    if jointPoints is None:
-        jointPoints = np.array(getRotAxisPoints(Arm=Arm,valueSet=valueSet,armPositions=armPositions))
-
+def jointLines(Arm,valueSet,jointPoints, armPositions):
     armDirections = np.array(getArmDirections(armPositions)) * jointR
     rotationMatrices = getRotationMatrices(arm=Arm,valueSet=valueSet)
 
@@ -272,6 +266,20 @@ def jointLines(Arm,valueSet,jointPoints=None, armPositions=None):
             frameLines.extend([P1, P1 + vecOut, P2, P2 + vecOut])
         lines.append(np.array(frameLines))
     return lines
+
+def getJointPie(Arm,valueSet,jointPoints=None, armPositions=None):
+    if armPositions is None:
+        armPositions = np.array([getAllPos(Arm, angle) for angle in valueSet])
+    
+    if jointPoints is None:
+        jointPoints = np.array(getRotAxisPoints(Arm=Arm,valueSet=valueSet,armPositions=armPositions))
+    
+    jointProgressLines = np.array(jointLines(Arm,valueSet,jointPoints, armPositions))
+
+    
+    for frame in len(jointProgressLines):
+        len(frame)
+
 
 def getArmDirections(armPositions):
     uVec = []
