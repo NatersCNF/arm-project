@@ -66,7 +66,16 @@ def getAllTransform(arm,valueSet):
     
     return np.array(allTransforms)
 
-def getAllPos(arm, values):
+def getAllPos(arm, values=None):
+    if values is None:
+        values = []
+        for link in arm:
+            if link.joint == 'r':
+                values.append(link.theta)
+            
+            elif link.joint == 'p':
+                values.append(link.r)
+
     positions = []
     transform = np.eye(4)
 

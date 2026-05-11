@@ -36,6 +36,7 @@ jointColumns = 20
 
 def dispPyqt(Arm, PSangles, Points, keyPos, margin=2,PPs=30):
     axisStroke = 3
+    show_markers = False
     keyPos = np.array(keyPos)[:, 0:3]
     pathPoints = np.array(Points)[:, :3]
     armPositions = np.array([getAllPos(Arm, angle) for angle in PSangles])
@@ -45,7 +46,10 @@ def dispPyqt(Arm, PSangles, Points, keyPos, margin=2,PPs=30):
     view = gl.GLViewWidget()
     view.show()
 
+    clip_offset = 0.01 # offset to avoid clipping between the pies and the end circles
+
     jointPoints = np.array(getRotAxisPoints(Arm=Arm,valueSet=PSangles,armPositions=armPositions))
+    jointPoints_out = np.array(getRotAxisPoints(Arm=Arm,valueSet=PSangles,armPositions=armPositions,offset=clip_offset))
 
     jointP1set, jointP2set = jointPoints[:, :, 0, :], jointPoints[:, :, 1, :]
     linkP1set, linkP2set = armPositions[:, :-1, :], armPositions[:, 1:, :]
@@ -60,12 +64,13 @@ def dispPyqt(Arm, PSangles, Points, keyPos, margin=2,PPs=30):
     linkCylinders = makeMeshHelperSet(P1set=linkP1set[0], P2set=linkP2set[0], view=view, type="link")
     
     # joints
-    jointCylinders = makeMeshHelperSet(P1set=jointP1set[0], P2set=jointP2set[0], view=view, type="joint") 
-    markers = jointLines(Arm=Arm, valueSet=PSangles, jointPoints=jointPoints, armPositions=armPositions)
-    markerLine = gl.GLLinePlotItem(pos=markers[0], color=(1, 1, 0, 1), width=2, mode='lines')
-    view.addItem(markerLine)
+    jointCylinders = makeMeshHelperSet(P1set=jointP1set[0], P2set=jointP2set[0], view=view, type="joint")
+    if show_markers:
+        markers = jointLines(Arm=Arm, valueSet=PSangles, jointPoints=jointPoints_out, armPositions=armPositions)
+        markerLine = gl.GLLinePlotItem(pos=markers[0], color=(1, 1, 0, 1), width=2, mode='lines')
+        view.addItem(markerLine)
 
-    arcSet = getArcSet(Arm=Arm,valueSet=PSangles,jointPoints=jointPoints,armPositions=armPositions)
+    arcSet = getArcSet(Arm=Arm,valueSet=PSangles,jointPoints=jointPoints_out,armPositions=armPositions)
     arcFaces = getArcFaceSet(arcSet)
     arc1_meshes, arc2_meshes = pieMeshMaker(arcSet, arcFaces, view)
 
@@ -91,7 +96,8 @@ def dispPyqt(Arm, PSangles, Points, keyPos, margin=2,PPs=30):
 
     def update():
         f = state['curF']
-        markerLine.setData(pos=markers[f])
+        if show_markers:
+            markerLine.setData(pos=markers[f])
         
         xOriginLine.setData(pos=origins[f][0])
         yOriginLine.setData(pos=origins[f][1])
@@ -212,8 +218,10 @@ def makeMeshHelperSet(P1set, P2set, view, type="link"):
                     
     return np.array(helper,dtype=object)
 
-def getRotAxisPoints(Arm,valueSet,armPositions,cLength=0.5):
-    cLength += 0.2
+def getRotAxisPoints(Arm,valueSet,armPositions,cLength=0.5,offset=None):
+    if offset is not None:
+        cLength += offset
+        
     halfLen = cLength / 2
     allRotAxes = getAllRotPos(Arm,valueSet)
     jointPointSet = []
