@@ -246,8 +246,11 @@ def applyTransform(meshItem, P1, P2):
                 meshItem.rotate(angle, *cross)
         meshItem.translate(*P1)
 
-def jointLines(Arm,valueSet,jointPoints, armPositions):
-    armDirections = np.array(getArmDirections(armPositions)) * jointR
+def jointLines(Arm,valueSet,jointPoints, armPositions,vecLength=None,mode="moved"):
+    if vecLength is None:
+        vecLength = jointR
+
+    armDirections = np.array(getArmDirections(armPositions)) * vecLength
     rotationMatrices = getRotationMatrices(arm=Arm,valueSet=valueSet)
 
     lines = []
@@ -260,25 +263,38 @@ def jointLines(Arm,valueSet,jointPoints, armPositions):
             P2 = jointPoints[frame][i][1]
 
             vecIn = armDirections[frame][i]
-            vecOut = rotationMatrices[frame][i][:3, 0] * jointR
+            vecOut = rotationMatrices[frame][i][:3, 0] * vecLength
 
-            frameLines.extend([P1, P1 + vecIn, P2, P2 + vecIn])
-            frameLines.extend([P1, P1 + vecOut, P2, P2 + vecOut])
+            if mode == "moved":
+                frameLines.extend([P1, P1 + vecIn, P2, P2 + vecIn])
+                frameLines.extend([P1, P1 + vecOut, P2, P2 + vecOut])
+
+            elif mode == "out":
+                frameLines.append([vecIn, vecOut])
+
         lines.append(np.array(frameLines))
     return lines
 
 def getJointPie(Arm,valueSet,jointPoints=None, armPositions=None):
+    frameNum = len(valueSet)
+    jointNum = len(Arm)
     if armPositions is None:
         armPositions = np.array([getAllPos(Arm, angle) for angle in valueSet])
     
     if jointPoints is None:
         jointPoints = np.array(getRotAxisPoints(Arm=Arm,valueSet=valueSet,armPositions=armPositions))
-    
-    jointProgressLines = np.array(jointLines(Arm,valueSet,jointPoints, armPositions))
 
+    lines = np.array(jointLines(Arm,valueSet,jointPoints, armPositions, vecLength=1, mode="out"))
     
-    for frame in len(jointProgressLines):
-        len(frame)
+    
+    jointDir = getAllRotPos(Arm,valueSet)
+    
+    P1set, P2set = jointPoints[:, :, 0, :], jointPoints[:, :, 1, :]
+    static_vec, moving_vec = lines[:, :, 0, :], lines[:, :, 1, :]
+    
+
+
+
 
 
 def getArmDirections(armPositions):

@@ -193,13 +193,8 @@ def getAngleOG(arm, P, guess=None,printOut=False,tol=0.001, maxIterations=300):
 def getRotPos(transforms):
     rotationAxes = []
     for transform in transforms:
-        #x = [transform[0][0], transform[1][0], transform[2][0]]
-        #y = [transform[0][1], transform[1][1], transform[2][1]]
-        #z = [transform[0][2], transform[1][2], transform[2][2]]
-
-        
         x = transform[0][2]
-        y = transform[1][2] # attempt to make the returned rotational axis perpendicular to the link
+        y = transform[1][2]
         z = transform[2][2]
         rotationAxes.append([x, y, z])
     
