@@ -275,26 +275,62 @@ def jointLines(Arm,valueSet,jointPoints, armPositions,vecLength=None,mode="moved
         lines.append(np.array(frameLines))
     return lines
 
-def getJointPie(Arm,valueSet,jointPoints=None, armPositions=None):
+def getJointPie(Arm,valueSet,jointPoints=None, armPositions=None,radius=None,resolution=20):
+    if radius is None:
+        radius = jointR
     frameNum = len(valueSet)
-    jointNum = len(Arm)
     if armPositions is None:
         armPositions = np.array([getAllPos(Arm, angle) for angle in valueSet])
     
     if jointPoints is None:
         jointPoints = np.array(getRotAxisPoints(Arm=Arm,valueSet=valueSet,armPositions=armPositions))
+    
+    jointNum = len(jointPoints[0])
 
     lines = np.array(jointLines(Arm,valueSet,jointPoints, armPositions, vecLength=1, mode="out"))
     
-    
-    jointDir = getAllRotPos(Arm,valueSet)
-    
+    jointAxes = getAllRotPos(Arm,valueSet)
     P1set, P2set = jointPoints[:, :, 0, :], jointPoints[:, :, 1, :]
     static_vec, moving_vec = lines[:, :, 0, :], lines[:, :, 1, :]
+
+    arcPoints = []
+    for i in range(frameNum):
+        frameArc = []
+        frameDir = jointAxes[i]
+        frameStatic = static_vec[i]
+        frameMoving = moving_vec[i]
+
+        for j in range(jointNum):
+            joint_dir = frameDir[j]
+            joint_static = frameStatic[j]
+            joint_moving = frameMoving[j]
+
+            extraDir = np.linalg.cross(joint_dir, joint_static)
+
+            angleDot = np.linalg.dot(joint_static,joint_moving)
+            angleProduct = np.lingalg.norm(joint_static) * np.lingalg.norm(joint_moving)
+
+            angle = np.arccos(angleDot/angleProduct)
+
+            numPoints = int(np.abs(angle / (2 * np.pi)))
+            interval = angle / numPoints
+
+            arc = []
+            for k in range(numPoints):
+                pointAngle = interval * k
+                P = (joint_static * radius * np.cos(pointAngle)) + (extraDir * radius * np.sin(pointAngle))
+                arc.append(P)
+            frameArc.append(arc)
+        arcPoints.append(frameArc)
+
+        
+
+
+
+
+
+
     
-
-
-
 
 
 def getArmDirections(armPositions):
