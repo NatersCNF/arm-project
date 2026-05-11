@@ -213,6 +213,7 @@ def makeMeshHelperSet(P1set, P2set, view, type="link"):
     return np.array(helper,dtype=object)
 
 def getRotAxisPoints(Arm,valueSet,armPositions,cLength=0.5):
+    cLength += 0.2
     halfLen = cLength / 2
     allRotAxes = getAllRotPos(Arm,valueSet)
     jointPointSet = []
@@ -419,7 +420,6 @@ def pieMeshMaker(arc_set,arc_faces,view):
         arc2_meshes.append(arc2_mesh)
     
     return arc1_meshes, arc2_meshes
-
 
 def getArmDirections(armPositions):
     uVec = []
