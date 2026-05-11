@@ -27,22 +27,26 @@ pos1 = arm.getAllPos(Arm, angles)
 
 path1 = path.path()
 
-b = 3
 
-a = 4
-heightDiff = 0
+a = 3
+heightDiff = 1
 
 path1.addP(path.point(a, a, 2-(heightDiff), math.pi, 0, math.pi))
 path1.addP(path.point(a, -a, 2-(heightDiff / 2), math.pi, 0, math.pi))
 path1.addP(path.point(-a, -a, 2, math.pi, 0, math.pi))
 path1.addP(path.point(-a, a, 2+(heightDiff / 2), math.pi, 0, math.pi))
 path1.addP(path.point(a, a, 2+(heightDiff), math.pi, 0, math.pi))
+path1.addP(path.point(a, -a, 2-(heightDiff / 2), math.pi, 0, math.pi))
+
+
+
+
 
 PointsPerSecond = 100       # the number of points along a line per second of movement (based on the speed, determines animation framerate)
-UnitsPerSecond = 2         # the speed at which the endeffector will move along the path in units per second
+UnitsPerSecond = 5         # the speed at which the endeffector will move along the path in units per second
 
 #ps1 = path.pointSet(path1, Arm, "smooth",PointsPerSecond,UnitsPerSecond)
-ps1 = path.pointSet(path1, Arm, "p2p",PointsPerSecond,UnitsPerSecond)
+ps1 = path.pointSet(path1, Arm, "smooth",PointsPerSecond,UnitsPerSecond)
 pathPoints = ps1.updateCheck()
 ps1.generatePoints()
 

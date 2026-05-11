@@ -65,6 +65,13 @@ def dispPyqt(Arm, PSangles, Points, keyPos, margin=2,PPs=30):
     markerLine = gl.GLLinePlotItem(pos=markers[0], color=(1, 1, 0, 1), width=2, mode='lines')
     view.addItem(markerLine)
 
+    arcSet = getArcSet(Arm=Arm,valueSet=PSangles,jointPoints=jointPoints,armPositions=armPositions)
+    arcFaces = getArcFaceSet(arcSet)
+    arc1_meshes, arc2_meshes = pieMeshMaker(arcSet, arcFaces, view)
+
+
+
+
     # endeffector
     sphereData = gl.MeshData.sphere(rows=20,cols=20,radius=(jointR * 1.1))
     sphereMesh = gl.GLMeshItem(meshdata=sphereData,smooth=True,color=(1, 0.2, 0.2, 1),shader='shaded')
@@ -98,7 +105,15 @@ def dispPyqt(Arm, PSangles, Points, keyPos, margin=2,PPs=30):
         for i in range(len(linkCylinders)):
             P1, P2 = linkP1set[f][i], linkP2set[f][i]
             applyTransform(linkCylinders[i], P1, P2)
-        
+
+        for i in range(len(arcSet[0][f])):
+            new_arc1_verts = arcSet[0][f][i]
+            new_arc2_verts = arcSet[1][f][i]
+            new_faces = arcFaces[f][i]
+
+            arc1_meshes[i].setMeshData(vertexes=new_arc1_verts, faces=new_faces)
+            arc2_meshes[i].setMeshData(vertexes=new_arc2_verts, faces=new_faces)
+
         for i in range(len(jointCylinders)):
             P1, P2 = jointP1set[f][i], jointP2set[f][i]
             applyTransform(jointCylinders[i][0], P1, P2)
@@ -275,7 +290,7 @@ def jointLines(Arm,valueSet,jointPoints, armPositions,vecLength=None,mode="moved
         lines.append(np.array(frameLines))
     return lines
 
-def getJointPie(Arm,valueSet,jointPoints=None, armPositions=None,radius=None,resolution=20):
+def getArcSet(Arm,valueSet,jointPoints=None, armPositions=None,radius=None,resolution=50): # resolution is points per circle
     if radius is None:
         radius = jointR
     frameNum = len(valueSet)
@@ -294,43 +309,116 @@ def getJointPie(Arm,valueSet,jointPoints=None, armPositions=None,radius=None,res
     static_vec, moving_vec = lines[:, :, 0, :], lines[:, :, 1, :]
 
     arcPoints = []
+    angles = []
     for i in range(frameNum):
+        frameAngles = []
         frameArc = []
-        frameDir = jointAxes[i]
+        frameAxes = jointAxes[i]
+        frameAxes.insert(0,[0,0,1])
         frameStatic = static_vec[i]
         frameMoving = moving_vec[i]
 
-        for j in range(jointNum):
-            joint_dir = frameDir[j]
+        for j in range(jointNum - 1):
+            joint_dir = frameAxes[j]
             joint_static = frameStatic[j]
+            joint_static = joint_static / np.linalg.norm(joint_static)
             joint_moving = frameMoving[j]
 
             extraDir = np.linalg.cross(joint_dir, joint_static)
+            extraDir = extraDir / np.linalg.norm(extraDir)
 
-            angleDot = np.linalg.dot(joint_static,joint_moving)
-            angleProduct = np.lingalg.norm(joint_static) * np.lingalg.norm(joint_moving)
+            
 
-            angle = np.arccos(angleDot/angleProduct)
+            angleDot = np.dot(joint_static,joint_moving)
+            angleProduct = np.linalg.norm(joint_static) * np.linalg.norm(joint_moving)
+            angleCross = np.cross(joint_static, joint_moving)
+            angle = np.arccos(np.clip(angleDot/angleProduct, -1.0, 1.0))
+            rotations = int(abs(angle) / (2 * np.pi))
+            angle = angle - (2 * np.pi * rotations * np.sign(angle))
+            
 
-            numPoints = int(np.abs(angle / (2 * np.pi)))
-            interval = angle / numPoints
+            if np.dot(angleCross, joint_dir) < 0:
+                angle = -angle
 
-            arc = []
+            frameAngles.append(angle)
+
+            numPoints = resolution
+            interval = abs(angle) / resolution
+            direction = np.sign(angle) if angle != 0 else 1
+
+            arc = [np.array([0, 0, 0])]
             for k in range(numPoints):
-                pointAngle = interval * k
+                pointAngle = interval * k * direction
                 P = (joint_static * radius * np.cos(pointAngle)) + (extraDir * radius * np.sin(pointAngle))
                 arc.append(P)
             frameArc.append(arc)
         arcPoints.append(frameArc)
-
-        
-
-
-
-
-
-
+        angles.append(frameAngles)
     
+    arc1_set = []
+    arc2_set = []
+    for frameP1, frameP2, frameArcs in zip(P1set,P2set,arcPoints):
+        frame1 = []
+        frame2 = []
+        for P1, P2, jointArc in zip(frameP1, frameP2, frameArcs):
+            arcs = np.array(jointArc)
+
+            arc1 = arcs + P1
+            arc2 = arcs + P2
+
+            frame1.append(arc1)
+            frame2.append(arc2)
+        arc1_set.append(frame1)
+        arc2_set.append(frame2)
+    
+    return [arc1_set, arc2_set]
+
+def getArcFaceSet(arcSet):
+    arc1_set, arc2_set = arcSet[0], arcSet[1]
+
+    faces = []
+    for frame in range(len(arc1_set)):
+        frame_faces = []
+        frame_arcs = arc1_set[frame]
+
+        for i in range(len(frame_arcs)):
+            joint_faces = []
+            joint_arc = frame_arcs[i]
+            num_vertices = len(joint_arc)
+            num_arcP = num_vertices - 1
+            num_tris = num_arcP - 1
+
+            for k in range(num_tris):
+                joint_faces.append([0, (k + 1), (k + 2)])
+
+            joint_faces.append([0, num_arcP, 1])
+            frame_faces.append(joint_faces)
+            
+        faces.append(frame_faces)
+
+    return faces
+
+def pieMeshMaker(arc_set,arc_faces,view):
+    startFrame1_arcs, startFrame2_arcs = arc_set[0][0], arc_set[1][0]
+    start_faces = arc_faces[0]
+
+    arc1_meshes = []
+    arc2_meshes = []
+
+    for joint_arc1, joint_arc2, joint_faces in zip(startFrame1_arcs, startFrame2_arcs, start_faces):
+        arc1_meshdata = gl.MeshData(vertexes=joint_arc1, faces=joint_faces)
+        arc2_meshdata = gl.MeshData(vertexes=joint_arc2, faces=joint_faces)
+
+        arc1_mesh = gl.GLMeshItem(meshdata=arc1_meshdata, color=(1, 0.8, 0, 0.5), smooth=False)
+        arc2_mesh = gl.GLMeshItem(meshdata=arc2_meshdata, color=(1, 0.8, 0, 0.5), smooth=False)
+
+        view.addItem(arc1_mesh)
+        view.addItem(arc2_mesh)
+
+        arc1_meshes.append(arc1_mesh)
+        arc2_meshes.append(arc2_mesh)
+    
+    return arc1_meshes, arc2_meshes
 
 
 def getArmDirections(armPositions):
