@@ -221,3 +221,10 @@ def getRotationMatrices(arm,valueSet):
     allTransforms = np.array(getAllTransform(arm,valueSet))
     rotationMatrices = allTransforms[:, :, :3, :3]
     return rotationMatrices
+
+def get_all_joint_pos(arm,valueSet):
+    arm_positions = []
+    for values in valueSet:
+        pos = getAllPos(Arm,values)
+        arm_positions.append(pos)
+    return arm_positions

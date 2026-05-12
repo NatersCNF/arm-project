@@ -7,10 +7,11 @@ from PyQt6 import QtCore
 import matplotlib.pyplot as plt
 import matplotlib.animation as animation
 
-from arm import getAllTransform, getAllPos
+from arm import getAllTransform, getAllPos, get_all_joint_pos
 
 # gravity
-g = [0, 0, -9.81] # m/s^2, down in the z
+g_vec = [0, 0, -9.81] # m/s^2, down in the z
+g = 9.81
 
 
 def get_kinematic(Arm,valueSet,PPs, v_i=None,w_i=None,v_f=None,w_f=None,loop=True):
@@ -118,9 +119,8 @@ def get_motion_components(WorH): #  reutrns as vx, vy, yz, omegax, omegay, omega
     return v, omega
 
 class link_physics:
-    def __init__(self, length, direction, kg_m=None, m=None, type="slender"):
+    def __init__(self, length, kg_m=None, m=None, type="slender"):
         self.length = length
-        self.direction = direction
         
         if kg_m is None:
             kg_m = 5
@@ -142,24 +142,35 @@ class link_physics:
         angular = np.array(angular)
         velocity = np.array(velocity)
 
-        T_linear = (1 / 2) * (self.mass * velocity ** 2)
-        T_rotational = (1 / 2) * (self.I_Cm * angular ** 2)
+        T_linear = (1 / 2) * (self.mass * np.sum(velocity ** 2))
+        T_rotational = (1 / 2) * (self.I_Cm * np.sum(angular ** 2))
 
         T = T_linear + T_rotational
         return T
     
-    def get_gravitational_potential_energy(self, height, gravity=np.linalg.norm(g)):
-        PE = self.mass * gravity * height
+    def get_gravitational_potential_energy(self, height, gravity=None, reference=None):
+        if gravity is None:
+            gravity = g
+
+        if reference is None:
+            reference = 0
+
+        PE = self.mass * gravity * (height - reference)
         return PE
     
-    def link_energy(self, height, angular, velocity):
+    def link_energy(self, height, angular, velocity,reference=None):
         T = self.get_link_kinetic_energy(angular,velocity)
-        PE = self.get_gravitational_potential_energy(height)
+        PE = self.get_gravitational_potential_energy(height,reference=reference)
 
         energy = T + PE
 
         return energy
 
+    def link_force(self,acceleration):
+        F = self.mass * acceleration
+        return F
+    
+    def link_torque(self,)
 
 def get_arm_link_properties(Arm,values=None,type="normal"):
     points = np.array(getAllPos(arm=Arm,values=values))
@@ -239,9 +250,14 @@ def get_all_CoM(Arm, scientific_Arm, valueSet):
             pos = joint_pos + vec
             frame_COM_pos.append(pos)
         COM_pos.append(frame_COM_pos)
+    
+    return COM_pos
 
-def get_arm_energy(Arm, valueSet,scientific_Arm, angular=None, velocity=None): # frame, joint, value (valueset)
-    W = get_kinematic(Arm,valueSet=valueSet)
+def get_arm_energy(Arm, valueSet, PPs, scientific_Arm, angular=None, velocity=None,height_reference="zero"): # frame, joint, value (valueset)
+    if height_reference == "zero":
+        reference = 0
+    
+    W = get_kinematic(Arm,valueSet=valueSet, PPs=PPs)
     motion_components = get_motion_components(W)
 
     if velocity is None:
@@ -262,13 +278,39 @@ def get_arm_energy(Arm, valueSet,scientific_Arm, angular=None, velocity=None): #
     all_energy = []
     for frame_velocity, frame_angular, frame_height in zip(velocity, angular, heights):
         frame_energy = []
+
         for joint_velocity, joint_angular, joint_height, scientificlink in zip(frame_velocity, frame_angular, frame_height, scientific_Arm):
-            link_energy = scientificlink.link_energy(joint_height, joint_angular, joint_velocity)
+            link_energy = scientificlink.link_energy(joint_height, joint_angular, joint_velocity, reference)
             frame_energy.append(link_energy)
         all_energy.append(frame_energy)
 
     return all_energy
-            
+
+def find_arm_forces(scientific_Arm, accelerations):
+    forces = []
+    for scientific_link, acceleration in zip(scientific_Arm, accelerations):
+        forces.append(scientific_link.mass * acceleration)
+    return forces
+
+def get_all_forces(scientific_Arm, acceleration_set):
+    forces = []
+    for accelerations in acceleration_set:
+        frame_accelerations = find_arm_forces(scientific_Arm, accelerations)
+        forces.append(frame_accelerations)
+    
+    return forces
+
+def get_joint_velocities(Arm, valueSet, PPs):
+    arm_positions = get_all_joint_pos(Arm,valueSet)
+
+    joint_num = len(Arm)
+    v_i_joint = np.array([0, 0, 0])
+    v_i = np.tile(v_i_joint)
+
+    velocities = []
+
+
+
     
 
 
