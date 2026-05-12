@@ -196,9 +196,31 @@ def getAngleOG(arm, P, guess=None,printOut=False,tol=0.001, maxIterations=300):
 
         if printOut:
             print("Guess " + str(i + 1) + ": " + str(guess))
-    
-    raise ValueError("Could not find a solution within the maximum number of iterations")
+        
+    raise ValueError("Could not find a solution within the maximum number of iterations for pos " + str(targetPos))
 
+def solution_cleanup(Arm, values):
+    primsatic_index = prismatic_indices(Arm)
+    rev = 2 * np.pi
+    cleaned_values = []
+    for i, value in enumerate(values):
+        if i in primsatic_index:
+            cleaned_values.append(value)
+        
+        else:
+            angle_abs = np.abs(value)
+            sign = np.sign(value)
+
+            if angle_abs > rev:
+                count = np.floor(angle_abs / rev)
+                change = count * rev
+            else:
+                change = 0
+            new_angle = angle_abs - change
+
+            cleaned_values.append(new_angle * sign)
+    return cleaned_values
+        
 def getRotPos(transforms):
     rotationAxes = []
     for transform in transforms:
@@ -221,6 +243,13 @@ def getRotationMatrices(arm,valueSet):
     allTransforms = np.array(getAllTransform(arm,valueSet))
     rotationMatrices = allTransforms[:, :, :3, :3]
     return rotationMatrices
+
+def prismatic_indices(Arm):
+    prismatic_index = []
+    for i, link in enumerate(Arm):
+        if link.joint == 'p':
+            prismatic_index.append(i)
+    return prismatic_index
 
 def get_all_joint_pos(Arm,valueSet):
     arm_positions = []

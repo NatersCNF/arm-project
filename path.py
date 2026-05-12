@@ -6,9 +6,6 @@ from mpl_toolkits import mplot3d
 import matplotlib.animation as animation
 
 
-
-
-
 class point:
     def __init__(self, x=0, y=0, z=0, roll=0, pitch=0, yaw=0):
         self.pos = [x, y, z]
@@ -277,7 +274,9 @@ class pointSet:
         
         printInterval = int(3000 / len(self.Arm))
         angles = []
-        angles.append(getAngleOG(self.Arm, self.points[0],printOut=printToggle))
+        initial_angle = getAngleOG(self.Arm, self.points[0],printOut=printToggle)
+        cleaned_angle = solution_cleanup(self.Arm, initial_angle)
+        angles.append(cleaned_angle)
 
         for i in range(1, len(self.points)):
             if printToggle:

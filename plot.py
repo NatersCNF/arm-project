@@ -7,7 +7,7 @@ from PyQt6 import QtCore
 import matplotlib.pyplot as plt
 import matplotlib.animation as animation
 
-from arm import getAllPos, getAllRotPos, getRotationMatrices
+from arm import getAllPos, getAllRotPos, getRotationMatrices, prismatic_indices
 from physics import get_all_arm_properties
 
 def dispPath(Arm, Angles, Points, PPs, keyPos,L_unit=None,rot_unit=None):
@@ -19,7 +19,8 @@ def dispPath(Arm, Angles, Points, PPs, keyPos,L_unit=None,rot_unit=None):
 
 
     while True:
-        usr = input()
+        #usr = input()
+        usr = "1"
 
         if usr == "":
             break
@@ -36,9 +37,9 @@ def dispPath(Arm, Angles, Points, PPs, keyPos,L_unit=None,rot_unit=None):
 jointR = 0.3
 jointColumns = 20
 
-def dispPyqt(Arm, PSangles, Points, keyPos, margin=2,PPs=30,L_unit="u",rot_unit="rad"):   
+def dispPyqt(Arm, PSangles, Points, keyPos, margin=2,PPs=30,L_unit=None,rot_unit=None):   
     axisStroke = 3
-    show_markers = True
+    show_markers = False
     keyPos = np.array(keyPos)[:, 0:3]
     pathPoints = np.array(Points)[:, :3]
     armPositions = np.array([getAllPos(Arm, angle) for angle in PSangles])
@@ -94,13 +95,9 @@ def dispPyqt(Arm, PSangles, Points, keyPos, margin=2,PPs=30,L_unit="u",rot_unit=
     arc1_meshes, arc2_meshes = pieMeshMaker(arcSet, arcFaces, view)
 
     # text
-    text_mode = "P1"
-    text_points = np.array(getRotAxisPoints(Arm=Arm,valueSet=PSangles,armPositions=armPositions,offset=text_offset))
-    value_pretext = np.array(PSangles)
-    value_pretext = np.round(value_pretext,2)
-    joint_text = value_pretext.astype(str)
-    joint_text_items = make_text_item_set(Arm=Arm,text_points=text_points,valueSet_text=joint_text,view=view,type=text_mode)
-
+    text_points = np.array(adjusted_text_points(Arm=Arm,valueSet=PSangles,armPositions=armPositions,offset=text_offset))
+    joint_text = make_joint_text(Arm=Arm,valueSet=PSangles,L_unit=L_unit,rot_unit=rot_unit)
+    joint_text_items = make_text_item_set(text_points=text_points,text_valueSet=joint_text, view=view)
 
     #    endeffector
     sphereData = gl.MeshData.sphere(rows=20,cols=20,radius=(jointR * 1.1))
@@ -124,6 +121,7 @@ def dispPyqt(Arm, PSangles, Points, keyPos, margin=2,PPs=30,L_unit="u",rot_unit=
         if show_markers:
             markerLine.setData(pos=markers[f])
         
+        xOriginLine.setData(pos=origins[f][0])
         xOriginLine.setData(pos=origins[f][0])
         yOriginLine.setData(pos=origins[f][1])
         zOriginLine.setData(pos=origins[f][2])
@@ -161,28 +159,13 @@ def dispPyqt(Arm, PSangles, Points, keyPos, margin=2,PPs=30,L_unit="u",rot_unit=
             arc2_meshes[i].setMeshData(vertexes=new_arc2_verts, faces=new_faces)
 
         for i in range(len(joint_text_items)):
-            if text_mode == "both":
-                new_text = joint_text[f][i]
-                new_P1 = text_points[f][i][0]
-                new_P2 = text_points[f][i][1]
-                
-                joint_text_items[i][0].setData(pos=new_P1, text=new_text)
-                joint_text_items[i][1].setData(pos=new_P2, text=new_text)
+            new_text = joint_text[f][i]
             
-            elif text_mode == "P1":
-                new_text = joint_text[f][i]
-                new_points = text_points[f][i][0]
-                
-                joint_text_items[i].setData(pos=new_points, text=new_text)
+            new_text = joint_text[f][i]
+            new_points = text_points[f][i]
             
-            elif text_mode == "P2":
-                new_text = joint_text[f][i]
-                new_points = text_points[f][i][1]
-                
-                joint_text_items[i].setData(pos=new_points, text=new_text)
-
-        
-
+            joint_text_items[i].setData(pos=new_points, text=new_text)
+            
         for i in range(len(jointCylinders)):
             P1, P2 = jointP1set[f][i], jointP2set[f][i]
             applyTransform(jointCylinders[i][0], P1, P2)
@@ -283,7 +266,10 @@ def makeMeshHelperSet(P1set, P2set, view, type="link"):
                     
     return np.array(helper,dtype=object)
 
-def getRotAxisPoints(Arm,valueSet,armPositions,cLength=0.5,offset=None):
+def getRotAxisPoints(Arm,valueSet,armPositions=None,cLength=0.5,offset=None):
+    if armPositions is None:
+        armPositions = np.array([getAllPos(Arm, angle) for angle in valueSet])
+
     if offset is not None:
         cLength += offset
         
@@ -551,64 +537,148 @@ def getJointOrigin(Arm, valueSet, armPositions=None,length=2,joint=-1):
 
     return origins
 
-def prismatic_indices(Arm):
-    prismatic_index = []
-    for i, link in enumerate(Arm):
-        if link.joint == 'p':
-            prismatic_index.append(i)
-    return prismatic_index
+def adjusted_text_points(Arm, valueSet, armPositions=None, offset=0.5, default_direction="out"):
+    # default point choice for any non-prismatic joints. "out" picks the one further from the origin, and "in" picks the one closest to the origin
+    # offset is the distance of the text from the joint circle
+    frame_num = len(valueSet)
+    text_points = np.array(getRotAxisPoints(Arm=Arm,valueSet=valueSet,armPositions=armPositions,offset=offset))
+    primsatic_index = prismatic_indices(Arm)
 
-def chop_joint_points(joint_points,type="P1"):
-    joint_points = np.array(joint_points)
-    
-    if type == "P1":
-        return joint_points[:, :, 0, :]
-    
-    elif type == "P2":
-        return joint_points[:, :, 1, :]
+    single_point_set = []
+    for frame in range(frame_num):
+        adjusted_frame_points = []
+        frame_text_points = text_points[frame]
+        frame_positions = armPositions[frame]
 
-    elif type == "both":
-        return joint_points
-    
-    else:
-        raise ValueError("That is not a chop option")
+        joint_num = len(frame_text_points)
 
-def make_text_item_set(Arm, text_points, valueSet_text, view, type="both"):
+        for joint in range(joint_num):
+            P1 = frame_text_points[joint][0]
+            P2 = frame_text_points[joint][1]
+            prev_joint = joint - 1
+
+            if joint in primsatic_index or prev_joint in primsatic_index:
+
+                if joint in primsatic_index:
+                    pos = frame_positions[joint + 1]
+                
+                else:
+                    pos = frame_positions[joint - 1]
+                
+                P1_diff = pos - P1
+                P2_diff = pos - P2
+
+                P1_distance = np.linalg.norm(P1_diff)
+                P2_distance = np.linalg.norm(P2_diff)
+                
+                if P1_distance > P2_distance:
+                    point = P1
+                
+                else:
+                    point = P2
+
+            else:
+                if joint + 1 != joint_num:
+                    next_joint_pos = frame_positions[joint + 1]
+                    P1_distance = next_joint_pos - P1
+                    P2_distance = next_joint_pos - P2
+
+                    P1_distance = np.linalg.norm(P1_distance)
+                    P2_distance = np.linalg.norm(P2_distance)
+
+                    if (P1_distance - P2_distance) > 0.5:
+                        adjusted_frame_points.append(P1)
+                        continue
+                    
+                    elif (P2_distance - P1_distance) > 0.5:
+                        adjusted_frame_points.append(P2)
+                        continue
+
+                P1_d2ground = np.linalg.norm(P1)
+                P2_d2ground = np.linalg.norm(P2)
+
+                difference = np.abs(P2_d2ground) - np.abs(P1_d2ground)
+
+                if difference > 0.0001:
+                    if P1_d2ground > P2_d2ground:
+                        in_point = P2
+                        out_point = P1
+                    
+                    else:
+                        in_point = P1
+                        out_point = P2
+                    
+                else:
+                    in_point = P1
+                    out_point = P2
+
+                if default_direction == "out":
+                    point = out_point
+                elif default_direction == "in":
+                    point = in_point
+                else:
+                    raise ValueError("dunno what happened")
+                
+            adjusted_frame_points.append(point)
+        
+        single_point_set.append(adjusted_frame_points)
+
+    return single_point_set
+
+def make_joint_text(Arm, valueSet, L_unit=None, rot_unit=None):
+    if L_unit is None:
+        L_unit="u"
+    
+    if rot_unit is None:
+        rot_unit="rad"
+
+    valueSet = np.array(valueSet)
+    primsatic_index = prismatic_indices(Arm)
+
+    d_unit_text = " " + L_unit
+
+    if rot_unit == "rad":
+        rot_unit_text = " rads"
+        modifier = 1
+    
+    elif rot_unit == "deg":
+        rot_unit_text = " \u00b0"
+        modifier = 180 / np.pi
+    
+    elif rot_unit == "rev":
+        rot_unit_text = " rads"
+        modifier = 1 / (2 * np.pi)
+
+    text = []
+    for frame_value in valueSet:
+        frame_text = []
+
+        for i, joint_value in enumerate(frame_value):
+            
+            if i in primsatic_index:
+                joint_value = round(joint_value, 2)
+                joint_text = str(joint_value) + d_unit_text
+
+            else:
+                num_value = joint_value * modifier
+                num_value = round(num_value, 2)
+                joint_text = str(num_value) + rot_unit_text
+
+            frame_text.append(joint_text)
+        text.append(frame_text)
+    
+    return text
+
+def make_text_item_set(text_points, text_valueSet, view):
     text_points = np.array(text_points)
-    chopped_points = chop_joint_points(text_points,type)
-    
-    initial_values = valueSet_text[0, :]
-    joint_num = len(Arm)
+    initial_values = text_valueSet[0]
+    initial_pos = text_points[0, :, :]
+
     text_items = []
-
-    if type == "P1" or type == "P2":
-        initial_pos = chopped_points[0, :, :]
-        for i in range(joint_num):
-            initial_joint_text = str(initial_values[i])
-        
-            point_pos = initial_pos[i]
-            point_text = gl.GLTextItem(pos=point_pos,text=initial_joint_text)
-
-            view.addItem(point_text)
-
-            text_items.append(point_text)
-    
-    elif type == "both":
-        initial_pos = chopped_points[0, :, :, :]
-        for i in range(joint_num):
-            initial_joint_text = str(initial_values[i])
-        
-            P1_pos = initial_pos[i][0]
-            P1_text = gl.GLTextItem(pos=P1_pos,text=initial_joint_text)
-
-            view.addItem(P1_text)
-
-            P2_pos = initial_pos[i][1]
-            P2_text = gl.GLTextItem(pos=P2_pos,text=initial_joint_text)
-
-            view.addItem(P2_text)
-            text_items.append([P1_text, P2_text])      
-    
+    for joint_initial_pos, joint_initial_text in zip(initial_pos, initial_values):
+        point_text = gl.GLTextItem(pos=joint_initial_pos,text=joint_initial_text)
+        view.addItem(point_text)
+        text_items.append(point_text)
     return text_items
 
 # MatPlotLib main function

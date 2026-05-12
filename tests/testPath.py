@@ -39,22 +39,20 @@ distance_units = "m"       # doesn't actually mean anything, just changes the te
 
 
 path1 = path.path()
-a = 3
-heightDiff = 4
+a = 4
+heightDiff = 1
 
 path1.addP(path.point(a, a, 2-(heightDiff), math.pi, 0, math.pi))
 path1.addP(path.point(a, -a, 2-(heightDiff / 2), math.pi, 0, math.pi))
 path1.addP(path.point(-a, -a, 2, math.pi, 0, math.pi))
 path1.addP(path.point(-a, a, 2+(heightDiff / 2), math.pi, 0, math.pi))
 path1.addP(path.point(a, a, 2+(heightDiff), math.pi, 0, math.pi))
-path1.addP(path.point(a, -a, 2-(heightDiff / 2), math.pi, 0, math.pi))
 
-ps1 = path.pointSet(path1, Scara, "smooth",PointsPerSecond,UnitsPerSecond)
+ps1 = path.pointSet(path1, Arm, "smooth",PointsPerSecond,UnitsPerSecond)
 ps1.updateCheck()
 ps1.generatePoints()
 print("Calculating...")
 Parm, Pangles, Ppoints, Pkey = ps1.getPathData()
-
 
 
 """
