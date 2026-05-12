@@ -222,7 +222,7 @@ def getRotationMatrices(arm,valueSet):
     rotationMatrices = allTransforms[:, :, :3, :3]
     return rotationMatrices
 
-def get_all_joint_pos(arm,valueSet):
+def get_all_joint_pos(Arm,valueSet):
     arm_positions = []
     for values in valueSet:
         pos = getAllPos(Arm,values)

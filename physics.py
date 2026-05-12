@@ -9,6 +9,7 @@ import matplotlib.animation as animation
 
 from arm import getAllTransform, getAllPos, get_all_joint_pos
 
+
 # gravity
 g_vec = [0, 0, -9.81] # m/s^2, down in the z
 g = 9.81
@@ -170,10 +171,12 @@ class link_physics:
         F = self.mass * acceleration
         return F
     
-    def link_torque(self,)
+    def link_torque(self,angular_acceleration):
+        torque = self.I_joint * angular_acceleration
+        return torque
 
-def get_arm_link_properties(Arm,values=None,type="normal"):
-    points = np.array(getAllPos(arm=Arm,values=values))
+
+def get_arm_link_properties(points,type="normal"):
     cur_joint = points[:-1]
     next_joint = points[1:]
     vectors = next_joint - cur_joint
@@ -199,10 +202,13 @@ def get_arm_link_properties(Arm,values=None,type="normal"):
     else:
         raise ValueError("Unsupported property type")
 
-def get_all_arm_properties(Arm, valueSet,type):
+def get_all_arm_properties(type, arm_positions=None, valueSet=None, Arm=None):
+    if arm_positions is None:
+        arm_positions = get_all_joint_pos(Arm,valueSet)
+
     properties = []
-    for values in valueSet:
-        item = get_arm_link_properties(Arm,values,type)
+    for points in arm_positions:
+        item = get_arm_link_properties(points,type)
         properties.append(item)
     
     return properties
@@ -300,14 +306,42 @@ def get_all_forces(scientific_Arm, acceleration_set):
     
     return forces
 
-def get_joint_velocities(Arm, valueSet, PPs):
+def get_joint_velocities(Arm, valueSet, PPs, v_i=None,v_f=None):
     arm_positions = get_all_joint_pos(Arm,valueSet)
+    interval = 1 / PPs
+    if v_i is None:
+        v_i = np.array([0, 0, 0])
+    
+    if v_f is None:
+        v_f = v_i
 
     joint_num = len(Arm)
-    v_i_joint = np.array([0, 0, 0])
-    v_i = np.tile(v_i_joint)
-
+    
     velocities = []
+    v_i = np.tile(v_i, (joint_num, 1, 1))
+    v_f = np.tile(v_f, (joint_num, 1, 1))
+    velocities.append(v_i)
+
+    prev_pos = arm_positions[:-1, :, :, :]
+    pos = arm_positions[1:, :, :, :]
+
+    displacement = pos - prev_pos
+    rate = displacement / interval
+
+    velocities.extend(rate)
+    velocities.append(v_f)
+
+    return velocities
+
+def get_joint_accelerations(velocities,PPs):
+    interval = 1 / PPs
+    prev_velocity = velocities[:-1, :, :, :]
+    velocity = velocities[1:, :, :, :]
+
+    diff = velocities - prev_velocity
+    acceleration = diff / interval
+    return acceleration
+
 
 
 
