@@ -31,7 +31,7 @@ angles = [math.radians(30), math.radians(45), -math.radians(20), math.radians(60
 pos1 = arm.getAllPos(Arm, angles)
 
 
-PointsPerSecond = 100       # the number of points along a line per second of movement (based on the speed, determines animation framerate)
+PointsPerSecond = 50       # the number of points along a line per second of movement (based on the speed, determines animation framerate)
 UnitsPerSecond = 5         # the speed at which the endeffector will move along the path in units per second
 
 rotational_units = "deg"   # can be "deg", "rev" or"rad", just changes the text

@@ -90,8 +90,9 @@ def dispPyqt(Arm, PSangles, Points, keyPos, margin=2,PPs=30,L_unit=None,rot_unit
         view.addItem(markerLine)
     
     # pies
-    arcSet = getArcSet(Arm=Arm,valueSet=PSangles,jointPoints=jointPoints_out,armPositions=armPositions)
-    face_colors = get_colors(valueSet=PSangles,arc_set=arcSet,Arm=Arm)
+    pie_res = 100
+    arcSet = getArcSet(Arm=Arm,valueSet=PSangles,jointPoints=jointPoints_out,armPositions=armPositions,resolution=pie_res)
+    face_colors = get_colors(valueSet=PSangles,arc_set=arcSet,Arm=Arm,resolution=pie_res)
     arcFaces = getArcFaceSet(arcSet)
     arc1_meshes, arc2_meshes = pieMeshMaker(arcSet, arcFaces, view, face_colors)
 
@@ -410,6 +411,8 @@ def getArcSet(Arm,valueSet,jointPoints=None, armPositions=None,radius=None,resol
                 extraDir = extraDir / np.linalg.norm(extraDir)
 
             angle = valueSet[i][j]
+            if abs(angle) > (2 * np.pi):
+                angle = np.sign(angle) * 2 * np.pi
 
             rotations = abs(angle) / (2 * np.pi)
 
@@ -512,9 +515,10 @@ def pieMeshMaker(arc_set,arc_faces,view, colors=None):
     
     return arc1_meshes, arc2_meshes
 
-def get_colors(valueSet, arc_set, Arm, min_color=None, max_color=None):
+def get_colors(valueSet, arc_set, Arm, min_color=None, max_color=None, resolution=50):
     valueSet = np.array(valueSet)
     primsatic_index = prismatic_indices(Arm)
+    face_per_circle = resolution - 1
     if min_color is None:
         min_color = [1, 0.8, 0, 0.5]
     min_color = np.array(min_color)
@@ -545,18 +549,38 @@ def get_colors(valueSet, arc_set, Arm, min_color=None, max_color=None):
                 continue
             
             joint_colors = []
-            joint_arc = frame_arcs[joint]
             joint_angle = np.abs(frame_values[joint])
 
-            face_num = max(1, len(joint_arc) - 2)
+            rotations = joint_angle / (2 * np.pi)
+            face_num = max(1, int(np.ceil(face_per_circle * rotations)))
+            og_face_num = face_num
+
             fraction = joint_angle / max_angle
             color_fraction = color_diff * fraction
 
             color_interval = color_fraction / face_num
 
-            for face in range(face_num):
-                face_color = min_color + (face * color_interval)
+            
+
+            if joint_angle > (2 * np.pi):
+                full_rotations = np.floor(rotations)
+                rotation_faces = full_rotations * face_per_circle
+                start = min_color + ((face_num - rotation_faces) * color_interval)
+                face_num = face_per_circle
+            
+            else:
+                start = min_color
+
+            for face in range(int(face_num)):
+                face_color = start + (face * color_interval)
                 joint_colors.append(face_color)
+            
+            if joint_angle > (2 * np.pi):
+                mini_face_num = og_face_num - rotation_faces #* np.sign(joint_angle)
+                joint_colors = np.roll(joint_colors, mini_face_num, axis=0).tolist()
+            
+            
+
             frame_color.append(joint_colors)
         colors.append(frame_color)
     
