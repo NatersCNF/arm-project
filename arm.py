@@ -270,6 +270,7 @@ def getAngle_LM(arm, P, guess=None,printOut=False,tol=0.001, maxIterations=300):
 
     
     lam = 0.01
+    alpha = 1.0
     v = 2
     for i in range(maxIterations):
         curTransform = getForward(arm, guess)
@@ -300,15 +301,48 @@ def getAngle_LM(arm, P, guess=None,printOut=False,tol=0.001, maxIterations=300):
             return guess
         
         jacobian = getJacobian(arm, guess)
-        
         J = jacobian
         invJ = J.T @ np.linalg.inv(J @ J.T + (lam**2) * np.eye(6))
+        
+        test_guess = guess + alpha * (invJ @ error)
+        test_transform = getForward(arm, test_guess)
+        
+        test_rot = test_transform[:3, :3]
+        test_pos = test_transform[:3, 3]
 
-        alpha = 0.1
-        guess += alpha * (invJ @ error)
+        new_error_pos = targetPos - test_pos
+
+        rot_error = targetR @ test_rot.T
+
+        new_error_rot = 0.5 * np.array([
+            rot_error[2,1] - rot_error[1,2],
+            rot_error[0,2] - rot_error[2,0],
+            rot_error[1,0] - rot_error[0,1]
+        ])
+        
+        w_pos = 1.0
+        w_rot = 0.5
+
+        new_error = np.concatenate([
+            w_pos * new_error_pos,
+            w_rot * new_error_rot
+        ])
 
         if printOut:
             print("Guess " + str(i + 1) + ": " + str(guess))
+
+        new_error_norm = np.linalg.norm(new_error)
+
+        if new_error_norm < current_error_norm:
+            guess = test_guess
+            good_guess = False
+            lam /= v
+        
+        else:
+            lam *= v
+            continue
+
+        
         
     raise ValueError("Could not find a solution within the maximum number of iterations for pos " + str(targetPos))
 
