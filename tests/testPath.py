@@ -48,6 +48,15 @@ path1.addP(path.point(-a, -a, 2, math.pi, 0, math.pi))
 path1.addP(path.point(-a, a, 2+(heightDiff / 2), math.pi, 0, math.pi))
 path1.addP(path.point(a, a, 2+(heightDiff), math.pi, 0, math.pi))
 
+path1.addP(path.point(a, a, 2-(heightDiff), math.pi, 0, math.pi))
+path1.addP(path.point(a, -a, 2-(heightDiff / 2), math.pi, 0, math.pi))
+path1.addP(path.point(-a, -a, 2, math.pi, 0, math.pi))
+path1.addP(path.point(-a, a, 2+(heightDiff / 2), math.pi, 0, math.pi))
+path1.addP(path.point(a, a, 2+(heightDiff), math.pi, 0, math.pi))
+
+
+
+
 ps1 = path.pointSet(path1, Arm, "smooth",PointsPerSecond,UnitsPerSecond)
 ps1.updateCheck()
 ps1.generatePoints()

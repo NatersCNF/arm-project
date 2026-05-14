@@ -39,7 +39,7 @@ jointColumns = 20
 
 def dispPyqt(Arm, PSangles, Points, keyPos, margin=2,PPs=30,L_unit=None,rot_unit=None):   
     axisStroke = 3
-    show_markers = False
+    show_markers = True
     keyPos = np.array(keyPos)[:, 0:3]
     pathPoints = np.array(Points)[:, :3]
     armPositions = np.array([getAllPos(Arm, angle) for angle in PSangles])
@@ -91,8 +91,9 @@ def dispPyqt(Arm, PSangles, Points, keyPos, margin=2,PPs=30,L_unit=None,rot_unit
     
     # pies
     arcSet = getArcSet(Arm=Arm,valueSet=PSangles,jointPoints=jointPoints_out,armPositions=armPositions)
+    face_colors = get_colors(valueSet=PSangles,arc_set=arcSet,Arm=Arm)
     arcFaces = getArcFaceSet(arcSet)
-    arc1_meshes, arc2_meshes = pieMeshMaker(arcSet, arcFaces, view)
+    arc1_meshes, arc2_meshes = pieMeshMaker(arcSet, arcFaces, view, face_colors)
 
     # text
     text_points = np.array(adjusted_text_points(Arm=Arm,valueSet=PSangles,armPositions=armPositions,offset=text_offset))
@@ -154,9 +155,10 @@ def dispPyqt(Arm, PSangles, Points, keyPos, margin=2,PPs=30,L_unit=None,rot_unit
             new_arc1_verts = arcSet[0][f][i]
             new_arc2_verts = arcSet[1][f][i]
             new_faces = arcFaces[f][i]
+            new_colors = face_colors[f][i] if face_colors else None
 
-            arc1_meshes[i].setMeshData(vertexes=new_arc1_verts, faces=new_faces)
-            arc2_meshes[i].setMeshData(vertexes=new_arc2_verts, faces=new_faces)
+            arc1_meshes[i].setMeshData(vertexes=new_arc1_verts, faces=new_faces, faceColors=new_colors)
+            arc2_meshes[i].setMeshData(vertexes=new_arc2_verts, faces=new_faces, faceColors=new_colors)
 
         for i in range(len(joint_text_items)):
             new_text = joint_text[f][i]
@@ -337,8 +339,21 @@ def jointLines(Arm,valueSet,jointPoints, armPositions,vecLength=None,mode="moved
             P1 = jointPoints[frame][i][0]
             P2 = jointPoints[frame][i][1]
 
+            
+
             vecIn = armDirections[frame][i]
             vecOut = rotationMatrices[frame][i][:3, 0] * vecLength
+
+            angle = valueSet[frame][i]
+            joint_axis = P2 - P1
+            u = joint_axis / np.linalg.norm(joint_axis)
+            v = vecOut
+            uv_cross = np.cross(u, v)
+            uv_dot = np.dot(u, v)
+            new_vec = (v * np.cos(angle)) + (uv_cross * np.sin(angle)) + (u * uv_dot * (1 - np.cos(angle)))
+
+            vecIn = new_vec
+
 
             if mode == "moved":
                 frameLines.extend([P1, P1 + vecIn, P2, P2 + vecIn])
@@ -391,30 +406,26 @@ def getArcSet(Arm,valueSet,jointPoints=None, armPositions=None,radius=None,resol
             extraDir = np.linalg.cross(joint_dir, joint_static)
             extra_length = np.linalg.norm(extraDir)
             
-
             if extra_length != 0:
                 extraDir = extraDir / np.linalg.norm(extraDir)
-            
-            angleDot = np.dot(joint_static,joint_moving)
-            angleProduct = np.linalg.norm(joint_static) * np.linalg.norm(joint_moving)
-            angleCross = np.cross(joint_static, joint_moving)
-            angle = np.arccos(np.clip(angleDot/angleProduct, -1.0, 1.0))
-            rotations = int(abs(angle) / (2 * np.pi))
-            angle = angle - (2 * np.pi * rotations * np.sign(angle))
-            
 
-            if np.dot(angleCross, joint_dir) < 0:
-                angle = -angle
+            angle = valueSet[i][j]
+
+            rotations = abs(angle) / (2 * np.pi)
 
             frameAngles.append(angle)
 
-            numPoints = resolution
-            interval = abs(angle) / resolution
-            direction = np.sign(angle) if angle != 0 else 1
+            numPoints = int(np.ceil(resolution * rotations))
+
+            if numPoints < 2:
+                numPoints = 2
+
+            interval = angle / (numPoints - 1)
+            
 
             arc = [np.array([0, 0, 0])]
             for k in range(numPoints):
-                pointAngle = interval * k * direction
+                pointAngle = interval * k
                 P = (joint_static * radius * np.cos(pointAngle)) + (extraDir * radius * np.sin(pointAngle))
                 arc.append(P)
             frameArc.append(arc)
@@ -457,26 +468,41 @@ def getArcFaceSet(arcSet):
             for k in range(num_tris):
                 joint_faces.append([0, (k + 1), (k + 2)])
 
-            joint_faces.append([0, num_arcP, 1])
+            #joint_faces.append([0, num_arcP, 1])
             frame_faces.append(joint_faces)
             
         faces.append(frame_faces)
 
     return faces
 
-def pieMeshMaker(arc_set,arc_faces,view):
+def pieMeshMaker(arc_set,arc_faces,view, colors=None):
     startFrame1_arcs, startFrame2_arcs = arc_set[0][0], arc_set[1][0]
     start_faces = arc_faces[0]
+
+    if colors is not None:
+        initial_color = colors[0]
+        #initial_color = [1, 0.8, 0, 0.5]
 
     arc1_meshes = []
     arc2_meshes = []
 
-    for joint_arc1, joint_arc2, joint_faces in zip(startFrame1_arcs, startFrame2_arcs, start_faces):
+    for joint_arc1, joint_arc2, joint_faces, joint_colors in zip(startFrame1_arcs, startFrame2_arcs, start_faces, initial_color):
         arc1_meshdata = gl.MeshData(vertexes=joint_arc1, faces=joint_faces)
         arc2_meshdata = gl.MeshData(vertexes=joint_arc2, faces=joint_faces)
 
-        arc1_mesh = gl.GLMeshItem(meshdata=arc1_meshdata, color=(1, 0.8, 0, 0.5), smooth=False)
-        arc2_mesh = gl.GLMeshItem(meshdata=arc2_meshdata, color=(1, 0.8, 0, 0.5), smooth=False)
+        if colors is None:
+            arc1_meshdata = gl.MeshData(vertexes=joint_arc1, faces=joint_faces)
+            arc2_meshdata = gl.MeshData(vertexes=joint_arc2, faces=joint_faces)
+
+            arc1_mesh = gl.GLMeshItem(meshdata=arc1_meshdata, color=(1, 0.8, 0, 0.5), smooth=False)
+            arc2_mesh = gl.GLMeshItem(meshdata=arc2_meshdata, color=(1, 0.8, 0, 0.5), smooth=False)
+        
+        else:
+            arc1_meshdata = gl.MeshData(vertexes=joint_arc1, faces=joint_faces, faceColors=joint_colors)
+            arc2_meshdata = gl.MeshData(vertexes=joint_arc2, faces=joint_faces, faceColors=joint_colors)
+
+            arc1_mesh = gl.GLMeshItem(meshdata=arc1_meshdata, smooth=False)
+            arc2_mesh = gl.GLMeshItem(meshdata=arc2_meshdata, smooth=False)
 
         view.addItem(arc1_mesh)
         view.addItem(arc2_mesh)
@@ -485,6 +511,56 @@ def pieMeshMaker(arc_set,arc_faces,view):
         arc2_meshes.append(arc2_mesh)
     
     return arc1_meshes, arc2_meshes
+
+def get_colors(valueSet, arc_set, Arm, min_color=None, max_color=None):
+    valueSet = np.array(valueSet)
+    primsatic_index = prismatic_indices(Arm)
+    if min_color is None:
+        min_color = [1, 0.8, 0, 0.5]
+    min_color = np.array(min_color)
+
+    if max_color is None:
+        max_color = [1, 0, 0, 0.5]
+    max_color = np.array(max_color)
+
+    color_diff = max_color - min_color
+
+
+    value_abs = np.abs(valueSet)
+
+    max_angle = np.max(value_abs)
+    if max_angle == 0:
+        max_angle = 2 * np.pi
+
+    arc_set = arc_set[0]
+
+    colors = []
+    for frame in range(len(arc_set)):
+        frame_color = []
+        frame_arcs = arc_set[frame]
+        frame_values = valueSet[frame]
+
+        for joint in range(len(frame_values)):
+            if joint in primsatic_index:
+                continue
+            
+            joint_colors = []
+            joint_arc = frame_arcs[joint]
+            joint_angle = np.abs(frame_values[joint])
+
+            face_num = max(1, len(joint_arc) - 2)
+            fraction = joint_angle / max_angle
+            color_fraction = color_diff * fraction
+
+            color_interval = color_fraction / face_num
+
+            for face in range(face_num):
+                face_color = min_color + (face * color_interval)
+                joint_colors.append(face_color)
+            frame_color.append(joint_colors)
+        colors.append(frame_color)
+    
+    return colors
 
 def getArmDirections(armPositions):
     uVec = []
