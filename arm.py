@@ -129,7 +129,7 @@ def getJacobian_old(arm, values, epsilon=0.00001):
 
     return J
 
-def getJacobian(arm, values, epsilon=0.00001):
+def getJacobian(arm, values):
     num_joints = len(arm)
     transforms = np.array(getArmTransform(arm,values))
     arm_pos = np.array(getAllPos(arm, values))
@@ -236,6 +236,83 @@ def getAngleOG(arm, P, guess=None,printOut=False,tol=0.001, maxIterations=300):
             print("Guess " + str(i + 1) + ": " + str(guess))
         
     raise ValueError("Could not find a solution within the maximum number of iterations for pos " + str(targetPos))
+
+def getAngle_LM(arm, P, guess=None,printOut=False,tol=0.001, maxIterations=300):
+    x, y, z, roll, pitch, yaw = P
+
+    maxIterations = int(len(arm) * 50)
+
+    if maxIterations < 200:
+        maxIterations = 200
+    
+    targetPos = np.array([x, y, z])
+
+    Salpha = np.sin(yaw)
+    Calpha = np.cos(yaw)
+    
+    Sbeta = np.sin(roll)
+    Cbeta = np.cos(roll)
+    
+    Sgamma = np.sin(pitch)
+    Cgamma = np.cos(pitch)
+
+    targetR = np.array([
+        [(Calpha * Cbeta), ((Calpha * Sbeta * Sgamma) - (Salpha * Cgamma)), ((Calpha * Sbeta * Cgamma) + (Salpha * Sgamma))],
+        [(Salpha * Cbeta), ((Salpha * Sbeta * Sgamma) + (Calpha * Cgamma)), ((Salpha * Sbeta * Cgamma) - (Calpha * Sgamma))],
+        [(-Sgamma), (Cbeta * Sgamma), (Cbeta * Cgamma)]
+    ])
+
+    if guess is None:
+        guess = np.zeros(len(arm))
+    
+    else:
+        guess = np.array(guess, dtype=float)
+
+    
+    lam = 0.01
+    v = 2
+    for i in range(maxIterations):
+        curTransform = getForward(arm, guess)
+        curRot = curTransform[:3, :3]
+        curPos = curTransform[:3, 3]
+
+        errorPos = targetPos - curPos
+
+        R_err = targetR @ curRot.T
+
+        errorRot = 0.5 * np.array([
+            R_err[2,1] - R_err[1,2],
+            R_err[0,2] - R_err[2,0],
+            R_err[1,0] - R_err[0,1]
+        ])
+        
+        w_pos = 1.0
+        w_rot = 0.5
+
+        error = np.concatenate([
+            w_pos * errorPos,
+            w_rot * errorRot
+        ])
+
+        current_error_norm = np.linalg.norm(error)
+
+        if current_error_norm < tol:
+            return guess
+        
+        jacobian = getJacobian(arm, guess)
+        
+        J = jacobian
+        invJ = J.T @ np.linalg.inv(J @ J.T + (lam**2) * np.eye(6))
+
+        alpha = 0.1
+        guess += alpha * (invJ @ error)
+
+        if printOut:
+            print("Guess " + str(i + 1) + ": " + str(guess))
+        
+    raise ValueError("Could not find a solution within the maximum number of iterations for pos " + str(targetPos))
+
+
 
 def solution_cleanup(Arm, values):
     primsatic_index = prismatic_indices(Arm)
