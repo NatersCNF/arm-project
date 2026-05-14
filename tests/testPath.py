@@ -5,7 +5,7 @@ import os
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 import arm
-import path
+from path import point, path, pointSet
 import plot
 
 import math
@@ -32,70 +32,90 @@ pos1 = arm.getAllPos(Arm, angles)
 
 
 PointsPerSecond = 40       # the number of points along a line per second of movement (based on the speed, determines animation framerate)
-UnitsPerSecond = 4         # the speed at which the endeffector will move along the path in units per second
+speed = 4         # the speed at which the endeffector will move along the path in units per second
+angular_speed = math.pi
+
+linear_acceleration = 2
+angular_acceleration = 2
 
 rotational_units = "deg"   # can be "deg", "rev" or"rad", just changes the text
 distance_units = "m"       # doesn't actually mean anything, just changes the text
 
 
-path1 = path.path()
+path1 = path()
 a = 4
 heightDiff = 1
+z_level = 2
+"""
+path1.addP(point(a, a, 2-(heightDiff), math.pi, 0, math.pi))
+path1.addP(point(a, -a, 2-(heightDiff / 2), math.pi, 0, math.pi))
+path1.addP(point(-a, -a, 2, math.pi, 0, math.pi))
+path1.addP(point(-a, a, 2+(heightDiff / 2), math.pi, 0, math.pi))
+path1.addP(point(a, a, 2+(heightDiff), math.pi, 0, math.pi))
 
-path1.addP(path.point(a, a, 2-(heightDiff), math.pi, 0, math.pi))
-path1.addP(path.point(a, -a, 2-(heightDiff / 2), math.pi, 0, math.pi))
-path1.addP(path.point(-a, -a, 2, math.pi, 0, math.pi))
-path1.addP(path.point(-a, a, 2+(heightDiff / 2), math.pi, 0, math.pi))
-path1.addP(path.point(a, a, 2+(heightDiff), math.pi, 0, math.pi))
+path1.addP(point(a, a, 2-(heightDiff), math.pi, 0, math.pi))
+path1.addP(point(a, -a, 2-(heightDiff / 2), math.pi, 0, math.pi))
+path1.addP(point(-a, -a, 2, math.pi, 0, math.pi))
+path1.addP(point(-a, a, 2+(heightDiff / 2), math.pi, 0, math.pi))
+path1.addP(point(a, a, 2+(heightDiff), math.pi, 0, math.pi))
 
-path1.addP(path.point(a, a, 2-(heightDiff), math.pi, 0, math.pi))
-path1.addP(path.point(a, -a, 2-(heightDiff / 2), math.pi, 0, math.pi))
-path1.addP(path.point(-a, -a, 2, math.pi, 0, math.pi))
-path1.addP(path.point(-a, a, 2+(heightDiff / 2), math.pi, 0, math.pi))
-path1.addP(path.point(a, a, 2+(heightDiff), math.pi, 0, math.pi))
+path1.addP(point(a, a, 2+(heightDiff), math.pi, 0, math.pi))
+path1.addP(point(-a, a, 2+(heightDiff / 2), math.pi, 0, math.pi))
+path1.addP(point(-a, -a, 2, math.pi, 0, math.pi))
+path1.addP(point(a, -a, 2-(heightDiff / 2), math.pi, 0, math.pi))
+path1.addP(point(a, a, 2-(heightDiff), math.pi, 0, math.pi))
 
-path1.addP(path.point(a, a, 2+(heightDiff), math.pi, 0, math.pi))
-path1.addP(path.point(-a, a, 2+(heightDiff / 2), math.pi, 0, math.pi))
-path1.addP(path.point(-a, -a, 2, math.pi, 0, math.pi))
-path1.addP(path.point(a, -a, 2-(heightDiff / 2), math.pi, 0, math.pi))
-path1.addP(path.point(a, a, 2-(heightDiff), math.pi, 0, math.pi))
+path1.addP(point(a, a, 2+(heightDiff), math.pi, 0, math.pi))
+path1.addP(point(-a, a, 2+(heightDiff / 2), math.pi, 0, math.pi))
+path1.addP(point(-a, -a, 2, math.pi, 0, math.pi))
+path1.addP(point(a, -a, 2-(heightDiff / 2), math.pi, 0, math.pi))
+path1.addP(point(a, a, 2-(heightDiff), math.pi, 0, math.pi))
+"""
+path1.addP(point(a, a, z_level, math.pi, 0, math.pi))
+path1.addP(point(a, -a, z_level, math.pi, 0, math.pi))
+path1.addP(point(-a, -a, z_level, math.pi, 0, math.pi))
+path1.addP(point(-a, a, z_level, math.pi, 0, math.pi))
+path1.addP(point(a, a, z_level, math.pi, 0, math.pi))
 
-path1.addP(path.point(a, a, 2+(heightDiff), math.pi, 0, math.pi))
-path1.addP(path.point(-a, a, 2+(heightDiff / 2), math.pi, 0, math.pi))
-path1.addP(path.point(-a, -a, 2, math.pi, 0, math.pi))
-path1.addP(path.point(a, -a, 2-(heightDiff / 2), math.pi, 0, math.pi))
-path1.addP(path.point(a, a, 2-(heightDiff), math.pi, 0, math.pi))
+path1.addP(point(a, a, z_level, math.pi, 0, math.pi))
+path1.addP(point(a, a, z_level + 2 * a, math.pi, 0, math.pi))
+path1.addP(point(a, -a, z_level + 2 * a, math.pi, 0, math.pi))
+path1.addP(point(a, -a, z_level, math.pi, 0, math.pi))
+path1.addP(point(a, a, z_level, math.pi, 0, math.pi))
 
 
-ps1 = path.pointSet(path1, Arm, "smooth",PointsPerSecond,UnitsPerSecond)
+
+#ps1 = pointSet(path1, Arm, "p2p_trap", PPs=PointsPerSecond, v=speed, a=linear_acceleration, angular_v=angular_speed, angular_a=angular_acceleration)
+ps1 = pointSet(path1, Scara, "p2p", PPs=PointsPerSecond, v=speed, a=linear_acceleration, angular_v=angular_speed, angular_a=angular_acceleration)
 ps1.updateCheck()
 ps1.generatePoints()
 print("Calculating...")
+#print("POINTS: " + str(ps1.points))
 Parm, Pangles, Ppoints, Pkey = ps1.getPathData()
 
 
 
 """
 
-heart1 = path.path()
-heart2 = path.path()
+heart1 = path()
+heart2 = path()
 
 h_level = 1
 
 
-heart1.addP(path.point(3, 0, h_level, math.pi, 0, math.pi))
-heart1.addP(path.point(0, -3, h_level, math.pi, 0, math.pi))
-heart1.addP(path.point(-4, -3, h_level, math.pi, 0, math.pi))
-heart1.addP(path.point(-4, -1.5, h_level, math.pi, 0, math.pi))
-heart1.addP(path.point(-2.5, 0, h_level, math.pi, 0, math.pi))
+heart1.addP(point(3, 0, h_level, math.pi, 0, math.pi))
+heart1.addP(point(0, -3, h_level, math.pi, 0, math.pi))
+heart1.addP(point(-4, -3, h_level, math.pi, 0, math.pi))
+heart1.addP(point(-4, -1.5, h_level, math.pi, 0, math.pi))
+heart1.addP(point(-2.5, 0, h_level, math.pi, 0, math.pi))
 
-heart1.addP(path.point(-2.5, 0, h_level, math.pi, 0, math.pi))
-heart1.addP(path.point(-4, 1.5, h_level, math.pi, 0, math.pi))
-heart1.addP(path.point(-4, 3, h_level, math.pi, 0, math.pi))
-heart1.addP(path.point(0, 3, h_level, math.pi, 0, math.pi))
-heart1.addP(path.point(3, 0, h_level, math.pi, 0, math.pi))
+heart1.addP(point(-2.5, 0, h_level, math.pi, 0, math.pi))
+heart1.addP(point(-4, 1.5, h_level, math.pi, 0, math.pi))
+heart1.addP(point(-4, 3, h_level, math.pi, 0, math.pi))
+heart1.addP(point(0, 3, h_level, math.pi, 0, math.pi))
+heart1.addP(point(3, 0, h_level, math.pi, 0, math.pi))
 
-hear1_path = path.pointSet(heart1, Scara, "smooth",PointsPerSecond,UnitsPerSecond)
+hear1_path = pointSet(heart1, Scara, "smooth",PointsPerSecond,UnitsPerSecond)
 hear1_path.updateCheck()
 hear1_path.generatePoints()
 

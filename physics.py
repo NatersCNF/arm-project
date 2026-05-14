@@ -188,7 +188,10 @@ def get_arm_link_properties(points,type="normal"):
         unit_vectors = []
         for vec in vectors:
             L = np.linalg.norm(vec)
-            u_vec = vec / L
+            if round(L, 4) == 0:
+                u_vec = np.zeros_like(vec)
+            else:
+                u_vec = vec / L
             unit_vectors.append(u_vec)
         return unit_vectors
     

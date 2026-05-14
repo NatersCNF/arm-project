@@ -41,9 +41,13 @@ class path:
         self.addP(P)
             
 class pointSet:
-    def __init__(self, path, Arm, type="p2p", PPs=30, speed=1,live=False):
+    def __init__(self, path, Arm, type="p2p", PPs=30, v=1,a=0.5,angular_v=1,angular_a=0.5,live=False):
         self.nP = 0
-        self.speed = speed
+
+        self.speed = abs(v)
+        self.acceleration = abs(a)
+        self.angular_speed = abs(angular_v)
+        self.angular_acceleration = abs(angular_a)
         
         if not(type == "p2p" or type == "smooth"):
             raise ValueError("invalid type")
@@ -102,6 +106,9 @@ class pointSet:
         elif self.type == "p2p":
             self.generateP2P()
         
+        elif self.type == "p2p_trap":
+            self.generateTrapezoidP2P()
+        
         print("Number of points: " + str(len(self.points)))
 
     def updateUVec(self):
@@ -132,51 +139,6 @@ class pointSet:
         #print("UVECTORS:")
         self.updateUVec()
         #print(str(self.uvec))
-
-    """
-    def addLivePoint(self):
-        print("Enter a point, or type 'help' for info")
-        usr = input()
-
-        if usr.lower() == "help":
-            print("Type either the x y and z coordinates (comma and space seperated) to stay the same orientation, or the full x, y, z, roll, pitch, yaw")
-            print("If you want to use the angle pi, just type 'pi' or '-pi'")
-            print("Proper syntax example (just xyz): '5, 3, 2', or full: '2, 1, 3, pi, 0, 0")
-        
-        else:
-            Point = usr.split(", ")
-            for i in range(len(Point)):
-                if Point[i].lower() == "pi":
-                    Point[i] = math.pi
-                
-                elif Point[i].lower() == "-pi":
-                    Point[i] = -math.pi
-            
-            Point = [int(n) for n in Point]
-            prevPoint = self.path.keyPos[-1]
-            if len(Point) == 3:
-                Point = point(Point[0], Point[1], Point[2], prevPoint[3], prevPoint[4], prevPoint[5])
-            
-            else:
-                Point = point(Point[0], Point[1], Point[2], Point[3], Point[4], Point[5])
-            
-            self.path.addP(Point)
-            
-    def startLivePointer(self):
-        speed = self.speed
-        PPs = self.PPs
-
-        
-        while True:
-            self.updateCheck()
-            self.addLivePoint()
-            print("CURRENT POINTS:")
-            for i, point in enumerate(self.path.keyPos):
-                print(str(i + 1) + ". " + str(point))
-            
-            m = []
-            m.append([0, 0, 0])
-    """
 
     def generateP2P(self): #speed = u/s, and specified earlier, PPs = points per second 
         self.points.clear()
@@ -219,7 +181,141 @@ class pointSet:
 
                 self.points.append([x, y, z, roll, pitch, yaw])
 
-    
+    def generateTrapezoidP2P(self): #speed = u/s, and specified earlier, PPs = points per second 
+        self.updateCheck()
+        self.points.clear()
+        path_points = []
+
+        key_pos = self.path.keyPos
+        path_points.append(key_pos[0])
+
+        for i in range(len(key_pos) - 1):
+            cur_key_pos = np.array(key_pos[i])
+            next_key_pos = np.array(key_pos[i + 1])
+
+            dt = 1 / self.PPs
+
+            pos_diff_vec = next_key_pos[:3] - cur_key_pos[:3]
+            rot_diff_vec = next_key_pos[3:] - cur_key_pos[3:]
+            
+
+            pos_diff = np.linalg.norm(pos_diff_vec)
+            rot_diff = np.linalg.norm(rot_diff_vec)
+
+            if pos_diff > rot_diff:
+                segment_time = self.get_time(distance=pos_diff)
+            
+            else:
+                segment_time = self.get_time(angle=rot_diff)
+            
+            num_points = max(1, int(segment_time * self.PPs))
+
+            actual_time = num_points / self.PPs
+
+            for j in range(num_points):
+                current_time = j * dt
+
+                current_pos = cur_key_pos[:3]
+
+                if pos_diff != 0:
+                    current_pos_fraction = self.get_value_fraction(current_time=current_time, total_time=actual_time,distance=pos_diff)
+                    current_pos = (pos_diff_vec * current_pos_fraction) + cur_key_pos[:3]
+                
+                else:
+                    current_pos = cur_key_pos[:3]
+                
+                
+                if rot_diff != 0:
+                    current_rot_fraction = self.get_value_fraction(current_time=current_time, total_time=actual_time,angle=rot_diff)
+                    current_rot = (rot_diff_vec * current_rot_fraction) + cur_key_pos[3:]
+                
+                else:
+                    current_rot = cur_key_pos[3:]
+                
+        
+
+                num_decimals = 10
+
+                rounded_pos = np.round(current_pos,num_decimals).tolist()
+                rounded_rot = np.round(current_rot,num_decimals).tolist()
+
+                x, y, z = rounded_pos
+                roll, pitch, yaw = rounded_rot
+
+                self.points.append([x, y, z, roll, pitch, yaw])
+
+    def get_time(self, angle=None,distance=None):
+        if angle is None:
+            speed = self.speed
+            acceleration = self.acceleration
+            value = abs(distance)
+
+        elif distance is None:
+            speed = self.angular_speed
+            acceleration = self.angular_acceleration
+            value = abs(angle)
+        
+        max_acceleration_time = speed / acceleration
+        max_acceleration_value = (acceleration / 2) * (max_acceleration_time ** 2)
+        half_value = value / 2
+        value_acceleration_time = math.sqrt((2 * half_value) / acceleration)
+
+        if max_acceleration_time > value_acceleration_time:
+            return value_acceleration_time * 2
+        
+        else:
+            remaining_value = value - (max_acceleration_value * 2)
+            const_speed_time = remaining_value / speed
+            return const_speed_time + (max_acceleration_time * 2)
+        
+    def get_value_fraction(self, current_time, total_time, angle=None,distance=None):
+        if angle is None:
+            speed = self.speed
+            acceleration = self.acceleration
+            value = abs(distance)
+
+
+        elif distance is None:
+            speed = self.angular_speed
+            acceleration = self.angular_acceleration
+            value = abs(angle)
+        
+        current_time = max(0, min(current_time, total_time))
+        
+        max_acceleration_time = speed / acceleration
+        acceleration_distance = (acceleration / 2) * (max_acceleration_time ** 2)
+        flat_time = total_time - (max_acceleration_time * 2)
+
+        if total_time < (2 * max_acceleration_time):
+            half_time = total_time / 2
+            half_value = (acceleration / 2) * (half_time ** 2)
+
+            if current_time < half_time:
+                new_value = (acceleration / 2) * (current_time ** 2)
+
+            else:
+                speed_0 = half_time * acceleration
+                time_over_half = current_time - half_time
+                value_over_half = (speed_0 * time_over_half) - ((acceleration / 2) * (time_over_half ** 2))
+                new_value = half_value + value_over_half
+        
+        else:
+            if current_time < max_acceleration_time:
+                new_value = (acceleration / 2) * (current_time ** 2)
+            
+            elif current_time < (total_time - max_acceleration_time):
+                const_speed_time = current_time - max_acceleration_time
+                new_value = acceleration_distance + (const_speed_time * speed)
+            
+            else:
+                flat_distance = flat_time * speed
+                time_left = current_time - flat_time - max_acceleration_time
+                remaining_value = (speed * time_left) - ((acceleration / 2) * (time_left ** 2))
+                new_value = acceleration_distance + flat_distance + remaining_value
+        
+        fraction = new_value / value
+        return fraction
+ 
     def generateSpline(self):
         self.points.clear()
         m = []                  # assuming start & stop at first and last point
@@ -379,3 +475,7 @@ def getRotAxisPoints(Arm,valueSet,armPositions,cLength=1):
                 view.addItem(linkMesh)
                 helper.append(linkMesh)
     return np.array(helper)
+
+
+
+

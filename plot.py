@@ -196,10 +196,13 @@ def dispPyqt(Arm, PSangles, Points, keyPos, margin=2,PPs=30,L_unit=None,rot_unit
     view.addItem(z_axis)
 
     app.exec()
- 
+
 def getCylinderMesh(P1, P2, type, resolution=20):
     vec = P2 - P1
     normLength = np.linalg.norm(vec)
+    short_link = 0.0000001
+    if normLength < short_link:
+        normLength = short_link
 
     link_length = normLength
 
@@ -327,7 +330,14 @@ def jointLines(Arm,valueSet,jointPoints, armPositions,vecLength=None,mode="moved
     if vecLength is None:
         vecLength = jointR
 
-    armDirections = np.array(getArmDirections(armPositions)) * vecLength
+    frame_with_base = [[1.0, 0.0, 0.0]]
+    uVec = get_all_arm_properties(arm_positions=armPositions,type="unit")
+
+    armDirections = []
+    for frame_uvecs in uVec:
+        armDirections.append(frame_with_base + frame_uvecs)
+
+    armDirections = np.array(armDirections) * vecLength
     rotationMatrices = getRotationMatrices(arm=Arm,valueSet=valueSet)
 
     lines = []
@@ -575,22 +585,6 @@ def get_colors(valueSet, arc_set, Arm, min_color=None, max_color=None, resolutio
         colors.append(frame_color)
     
     return colors
-
-def getArmDirections(armPositions):
-    uVec = []
-
-    for frame in armPositions:
-        numJoints = len(frame) - 1
-        uFrame = []
-        uFrame.append([1,0,0])
-        for j in range(numJoints):
-            vec = frame[j + 1] - frame[j]
-            uvec = vec / np.linalg.norm(vec)
-            uFrame.append(uvec)
-        
-        uVec.append(uFrame)
-    
-    return uVec
 
 def pathLength(armPositions):
     endPos = armPositions[:,-1:,:]
