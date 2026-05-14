@@ -35,11 +35,10 @@ def dispPath(Arm, Angles, Points, PPs, keyPos,L_unit=None,rot_unit=None):
 
 # PyQTgraph main function & sub-functions
 jointR = 0.3
-jointColumns = 20
 
 def dispPyqt(Arm, PSangles, Points, keyPos, margin=2,PPs=30,L_unit=None,rot_unit=None):   
     axisStroke = 3
-    show_markers = True
+    show_markers = False
     keyPos = np.array(keyPos)[:, 0:3]
     pathPoints = np.array(Points)[:, :3]
     armPositions = np.array([getAllPos(Arm, angle) for angle in PSangles])
@@ -80,6 +79,7 @@ def dispPyqt(Arm, PSangles, Points, keyPos, margin=2,PPs=30,L_unit=None,rot_unit
     
 
     #  joints
+    pie_res = 100
     # cylinders
     jointCylinders = makeMeshHelperSet(P1set=jointP1set[0], P2set=jointP2set[0], view=view, type="joint")
 
@@ -90,7 +90,6 @@ def dispPyqt(Arm, PSangles, Points, keyPos, margin=2,PPs=30,L_unit=None,rot_unit
         view.addItem(markerLine)
     
     # pies
-    pie_res = 100
     arcSet = getArcSet(Arm=Arm,valueSet=PSangles,jointPoints=jointPoints_out,armPositions=armPositions,resolution=pie_res)
     face_colors = get_colors(valueSet=PSangles,arc_set=arcSet,Arm=Arm,resolution=pie_res)
     arcFaces = getArcFaceSet(arcSet)
@@ -198,7 +197,7 @@ def dispPyqt(Arm, PSangles, Points, keyPos, margin=2,PPs=30,L_unit=None,rot_unit
 
     app.exec()
  
-def getCylinderMesh(P1, P2, type):
+def getCylinderMesh(P1, P2, type, resolution=20):
     vec = P2 - P1
     normLength = np.linalg.norm(vec)
 
@@ -214,12 +213,12 @@ def getCylinderMesh(P1, P2, type):
     elif type == "joint":
         color=(0.6, 0.98, 0.6, 1.0)
         radiusC = jointR
-        Data = gl.MeshData.cylinder(rows=1, cols=jointColumns, radius=[radiusC, radiusC], length=link_length)
+        Data = gl.MeshData.cylinder(rows=1, cols=resolution, radius=[radiusC, radiusC], length=link_length)
     
     elif type == "circle":
         color=(0.6, 0.98, 0.6, 1.0)
         radiusC = jointR
-        Data = gl.MeshData.cylinder(rows=1, cols=jointColumns, radius=[radiusC, 0], length=0.01)
+        Data = gl.MeshData.cylinder(rows=1, cols=resolution, radius=[radiusC, 0], length=0.01)
     
     
     if normLength == 0 and type != "circle":
@@ -241,7 +240,7 @@ def getCylinderMesh(P1, P2, type):
     
     return mesh
 
-def makeMeshHelperSet(P1set, P2set, view, type="link"):
+def makeMeshHelperSet(P1set, P2set, view, type="link",resolution=20):
     helper = []
 
     numCylinder = len(P1set)
@@ -251,7 +250,7 @@ def makeMeshHelperSet(P1set, P2set, view, type="link"):
     for i in range(numCylinder):
             P1 = P1set[i]
             P2 = P2set[i]
-            linkMesh = getCylinderMesh(P1, P2, type)
+            linkMesh = getCylinderMesh(P1, P2, type,resolution)
             
             if linkMesh:
                 view.addItem(linkMesh)
@@ -383,17 +382,14 @@ def getArcSet(Arm,valueSet,jointPoints=None, armPositions=None,radius=None,resol
     
     jointAxes = getAllRotPos(Arm,valueSet)
     P1set, P2set = jointPoints[:, :, 0, :], jointPoints[:, :, 1, :]
-    static_vec, moving_vec = lines[:, :, 0, :], lines[:, :, 1, :]
+    static_vec = lines[:, :, 0, :]
 
     arcPoints = []
-    angles = []
     for i in range(frameNum):
-        frameAngles = []
         frameArc = []
         frameAxes = jointAxes[i]
         frameAxes.insert(0,[0,0,1])
         frameStatic = static_vec[i]
-        frameMoving = moving_vec[i]
 
         for j in range(jointNum - 1):
             if j in primsatic_index:
@@ -402,7 +398,6 @@ def getArcSet(Arm,valueSet,jointPoints=None, armPositions=None,radius=None,resol
             joint_dir = frameAxes[j]
             joint_static = frameStatic[j]
             joint_static = joint_static / np.linalg.norm(joint_static)
-            joint_moving = frameMoving[j]
 
             extraDir = np.linalg.cross(joint_dir, joint_static)
             extra_length = np.linalg.norm(extraDir)
@@ -410,13 +405,16 @@ def getArcSet(Arm,valueSet,jointPoints=None, armPositions=None,radius=None,resol
             if extra_length != 0:
                 extraDir = extraDir / np.linalg.norm(extraDir)
 
-            angle = valueSet[i][j]
-            if abs(angle) > (2 * np.pi):
-                angle = np.sign(angle) * 2 * np.pi
+            joint_angle = valueSet[i][j]
+            if abs(joint_angle) > (2 * np.pi):
+                angle = np.sign(joint_angle) * 2 * np.pi
+                angle_offset = joint_angle - angle
+            
+            else:
+                angle = joint_angle
+                angle_offset = 0
 
             rotations = abs(angle) / (2 * np.pi)
-
-            frameAngles.append(angle)
 
             numPoints = int(np.ceil(resolution * rotations))
 
@@ -428,12 +426,11 @@ def getArcSet(Arm,valueSet,jointPoints=None, armPositions=None,radius=None,resol
 
             arc = [np.array([0, 0, 0])]
             for k in range(numPoints):
-                pointAngle = interval * k
+                pointAngle = (interval * k) + angle_offset
                 P = (joint_static * radius * np.cos(pointAngle)) + (extraDir * radius * np.sin(pointAngle))
                 arc.append(P)
             frameArc.append(arc)
         arcPoints.append(frameArc)
-        angles.append(frameAngles)
     
     arc1_set = []
     arc2_set = []
@@ -541,45 +538,38 @@ def get_colors(valueSet, arc_set, Arm, min_color=None, max_color=None, resolutio
     colors = []
     for frame in range(len(arc_set)):
         frame_color = []
-        frame_arcs = arc_set[frame]
         frame_values = valueSet[frame]
 
         for joint in range(len(frame_values)):
             if joint in primsatic_index:
                 continue
+
             
-            joint_colors = []
+
             joint_angle = np.abs(frame_values[joint])
+            full_rotation_check = joint_angle > (2 * np.pi)
+            fraction = joint_angle / max_angle
+            color_gradient = color_diff * fraction
 
             rotations = joint_angle / (2 * np.pi)
-            face_num = max(1, int(np.ceil(face_per_circle * rotations)))
-            og_face_num = face_num
+            full_rotations = np.floor(rotations)
+            full_rotation_faces = full_rotations * face_per_circle
 
-            fraction = joint_angle / max_angle
-            color_fraction = color_diff * fraction
-
-            color_interval = color_fraction / face_num
-
+            total_face_num = max(1, int(np.ceil(face_per_circle * rotations)))
+            arc_faces = min(face_per_circle, total_face_num)
             
+            color_step = color_gradient / total_face_num
 
-            if joint_angle > (2 * np.pi):
-                full_rotations = np.floor(rotations)
-                rotation_faces = full_rotations * face_per_circle
-                start = min_color + ((face_num - rotation_faces) * color_interval)
-                face_num = face_per_circle
-            
-            else:
-                start = min_color
-
-            for face in range(int(face_num)):
-                face_color = start + (face * color_interval)
+            joint_colors = []
+            for i in range(arc_faces):
+                face_color = min_color + color_step * i
                 joint_colors.append(face_color)
-            
-            if joint_angle > (2 * np.pi):
-                mini_face_num = og_face_num - rotation_faces #* np.sign(joint_angle)
-                joint_colors = np.roll(joint_colors, mini_face_num, axis=0).tolist()
-            
-            
+        
+            if full_rotation_check:
+                joint_colors = np.array(joint_colors)
+                roll_over = total_face_num - full_rotation_faces
+                color_offset = np.array(color_step * roll_over)
+                joint_colors = [color + color_offset for color in joint_colors]
 
             frame_color.append(joint_colors)
         colors.append(frame_color)
