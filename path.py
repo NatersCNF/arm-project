@@ -49,7 +49,7 @@ class pointSet:
         self.angular_speed = abs(angular_v)
         self.angular_acceleration = abs(angular_a)
         
-        if not(type == "p2p" or type == "smooth"):
+        if not(type == "p2p" or type == "smooth" or type == "p2p_trap"):
             raise ValueError("invalid type")
         self.type = type
         

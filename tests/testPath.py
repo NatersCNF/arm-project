@@ -45,48 +45,43 @@ distance_units = "m"       # doesn't actually mean anything, just changes the te
 path1 = path()
 a = 4
 heightDiff = 1
-z_level = 2
-"""
-path1.addP(point(a, a, 2-(heightDiff), math.pi, 0, math.pi))
-path1.addP(point(a, -a, 2-(heightDiff / 2), math.pi, 0, math.pi))
-path1.addP(point(-a, -a, 2, math.pi, 0, math.pi))
-path1.addP(point(-a, a, 2+(heightDiff / 2), math.pi, 0, math.pi))
-path1.addP(point(a, a, 2+(heightDiff), math.pi, 0, math.pi))
+z_level = 0
 
-path1.addP(point(a, a, 2-(heightDiff), math.pi, 0, math.pi))
-path1.addP(point(a, -a, 2-(heightDiff / 2), math.pi, 0, math.pi))
-path1.addP(point(-a, -a, 2, math.pi, 0, math.pi))
-path1.addP(point(-a, a, 2+(heightDiff / 2), math.pi, 0, math.pi))
-path1.addP(point(a, a, 2+(heightDiff), math.pi, 0, math.pi))
 
-path1.addP(point(a, a, 2+(heightDiff), math.pi, 0, math.pi))
-path1.addP(point(-a, a, 2+(heightDiff / 2), math.pi, 0, math.pi))
-path1.addP(point(-a, -a, 2, math.pi, 0, math.pi))
-path1.addP(point(a, -a, 2-(heightDiff / 2), math.pi, 0, math.pi))
-path1.addP(point(a, a, 2-(heightDiff), math.pi, 0, math.pi))
-
-path1.addP(point(a, a, 2+(heightDiff), math.pi, 0, math.pi))
-path1.addP(point(-a, a, 2+(heightDiff / 2), math.pi, 0, math.pi))
-path1.addP(point(-a, -a, 2, math.pi, 0, math.pi))
-path1.addP(point(a, -a, 2-(heightDiff / 2), math.pi, 0, math.pi))
-path1.addP(point(a, a, 2-(heightDiff), math.pi, 0, math.pi))
-"""
-path1.addP(point(a, a, z_level, math.pi, 0, math.pi))
-path1.addP(point(a, -a, z_level, math.pi, 0, math.pi))
+path1.addP(point(a, a, z_level-(heightDiff), math.pi, 0, math.pi))
+path1.addP(point(a, -a, z_level-(heightDiff / 2), math.pi, 0, math.pi))
 path1.addP(point(-a, -a, z_level, math.pi, 0, math.pi))
-path1.addP(point(-a, a, z_level, math.pi, 0, math.pi))
-path1.addP(point(a, a, z_level, math.pi, 0, math.pi))
+path1.addP(point(-a, a, z_level+(heightDiff / 2), math.pi, 0, math.pi))
+path1.addP(point(a, a, z_level+(heightDiff), math.pi, 0, math.pi))
 
-path1.addP(point(a, a, z_level, math.pi, 0, math.pi))
-path1.addP(point(a, a, z_level + 2 * a, math.pi, 0, math.pi))
-path1.addP(point(a, -a, z_level + 2 * a, math.pi, 0, math.pi))
-path1.addP(point(a, -a, z_level, math.pi, 0, math.pi))
-path1.addP(point(a, a, z_level, math.pi, 0, math.pi))
+path1.addP(point(a, a, z_level-(heightDiff), math.pi, 0, math.pi))
+path1.addP(point(a, -a, z_level-(heightDiff / 2), math.pi, 0, math.pi))
+path1.addP(point(-a, -a, z_level, math.pi, 0, math.pi))
+path1.addP(point(-a, a, z_level+(heightDiff / 2), math.pi, 0, math.pi))
+path1.addP(point(a, a, z_level+(heightDiff), math.pi, 0, math.pi))
+
+path1.addP(point(a, a, z_level+(heightDiff), math.pi, 0, math.pi))
+path1.addP(point(-a, a, z_level+(heightDiff / 2), math.pi, 0, math.pi))
+path1.addP(point(-a, -a, z_level, math.pi, 0, math.pi))
+path1.addP(point(a, -a, z_level-(heightDiff / 2), math.pi, 0, math.pi))
+path1.addP(point(a, a, z_level-(heightDiff), math.pi, 0, math.pi))
+
+path1.addP(point(a, a, z_level+(heightDiff), math.pi, 0, math.pi))
+path1.addP(point(-a, a, z_level+(heightDiff / 2), math.pi, 0, math.pi))
+path1.addP(point(-a, -a, z_level, math.pi, 0, math.pi))
+path1.addP(point(a, -a, z_level-(heightDiff / 2), math.pi, 0, math.pi))
+path1.addP(point(a, a, z_level-(heightDiff), math.pi, 0, math.pi))
 
 
 
-#ps1 = pointSet(path1, Arm, "p2p_trap", PPs=PointsPerSecond, v=speed, a=linear_acceleration, angular_v=angular_speed, angular_a=angular_acceleration)
-ps1 = pointSet(path1, Scara, "p2p", PPs=PointsPerSecond, v=speed, a=linear_acceleration, angular_v=angular_speed, angular_a=angular_acceleration)
+
+
+
+path_types = ["p2p_trap", "p2p", "smooth"]
+current_arm = Arm
+current_path_type = path_types[0]
+
+ps1 = pointSet(path1, current_arm, current_path_type, PPs=PointsPerSecond, v=speed, a=linear_acceleration, angular_v=angular_speed, angular_a=angular_acceleration)
 ps1.updateCheck()
 ps1.generatePoints()
 print("Calculating...")

@@ -87,7 +87,7 @@ def getAllPos(arm, values=None):
     
     return positions
 
-def getJacobian(arm, values, epsilon=0.00001):
+def getJacobian_old(arm, values, epsilon=0.00001):
     n = len(arm)
     J = np.zeros((6, n))
     curTransform = getForward(arm, values)
@@ -129,6 +129,44 @@ def getJacobian(arm, values, epsilon=0.00001):
 
     return J
 
+def getJacobian(arm, values, epsilon=0.00001):
+    num_joints = len(arm)
+    transforms = np.array(getArmTransform(arm,values))
+    arm_pos = np.array(getAllPos(arm, values))
+
+
+    rotation_matrices = transforms[:,:3,:3]
+
+    end_effector_pos = arm_pos[-1, :]
+
+    jacobian = np.zeros((6, num_joints))
+
+    for i in range(num_joints):
+        if i == 0:
+            prev_joint_z = np.array([0, 0, 1])
+            prev_joint_pos = np.array([0, 0, 0])
+
+        else:
+            prev_joint_z = transforms[i-1][:3, 2]
+            prev_joint_pos = arm_pos[i, :]
+
+        current_link = arm[i]
+        
+        if current_link.joint == 'r':
+            pos_diff = end_effector_pos - prev_joint_pos
+
+            jacobian[:3, i] = np.cross(prev_joint_z, pos_diff)
+            jacobian[3:6, i] = prev_joint_z
+        
+        elif current_link.joint == 'p':
+            jacobian[:3, i] = prev_joint_z
+            jacobian[3:6, i] = np.zeros(3)
+
+        else:
+            raise ValueError("invalid joint type")
+        
+    return jacobian
+       
 def getAngleOG(arm, P, guess=None,printOut=False,tol=0.001, maxIterations=300):
     x, y, z, roll, pitch, yaw = P
 
