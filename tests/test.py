@@ -27,7 +27,7 @@ pos1 = getAllPos(arm, angles)
 
 print("FIRST POINT")
 DESIREDPOS1 = [-6, 2, 3, 0, -math.pi/2, 0]
-angles2 = getAngle(arm, DESIREDPOS1)
+angles2 = getAngleOG(arm, DESIREDPOS1)
 pos2 = getAllPos(arm, angles2)
 
 
@@ -42,7 +42,7 @@ print("")
 print("SECOND POINT")
 
 DESIREDPOS2 = [2, -3, 3, 0, -math.pi/2, 0]
-angles2 = getAngle(arm, DESIREDPOS2, angles2)
+angles2 = getAngleOG(arm, DESIREDPOS2, angles2)
 pos2 = getAllPos(arm, angles2)
 
 i = 1
