@@ -202,11 +202,14 @@ class pointSet:
             pos_diff = np.linalg.norm(pos_diff_vec)
             rot_diff = np.linalg.norm(rot_diff_vec)
 
+            pos_time = self.get_time(distance=pos_diff)
+            rot_time = self.get_time(angle=rot_diff)
+
             if pos_diff > rot_diff:
-                segment_time = self.get_time(distance=pos_diff)
+                segment_time = pos_time
             
             else:
-                segment_time = self.get_time(angle=rot_diff)
+                segment_time = rot_time
             
             num_points = max(1, int(segment_time * self.PPs))
 
@@ -370,7 +373,8 @@ class pointSet:
         
         printInterval = int(3000 / len(self.Arm))
         angles = []
-        initial_angle = getAngleOG(self.Arm, self.points[0],printOut=printToggle)
+        #initial_angle = getAngleOG(self.Arm, self.points[0],printOut=printToggle)
+        initial_angle = getAngle_LM(self.Arm, self.points[0])
         cleaned_angle = solution_cleanup(self.Arm, initial_angle)
         angles.append(cleaned_angle)
 
@@ -378,7 +382,8 @@ class pointSet:
             if printToggle:
                 print("NEW POINT "+str(i))
             P = self.points[i]
-            angles.append(getAngleOG(self.Arm, P,angles[i-1], printToggle))
+            #angles.append(getAngleOG(self.Arm, P,angles[i-1], printToggle))
+            angles.append(getAngle_LM(self.Arm, P,angles[i-1]))
             if i % printInterval == 0:
                 print("Current at " + str(i))
 
@@ -475,7 +480,3 @@ def getRotAxisPoints(Arm,valueSet,armPositions,cLength=1):
                 view.addItem(linkMesh)
                 helper.append(linkMesh)
     return np.array(helper)
-
-
-
-

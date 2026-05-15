@@ -31,14 +31,14 @@ angles = [math.radians(30), math.radians(45), -math.radians(20), math.radians(60
 pos1 = arm.getAllPos(Arm, angles)
 
 
-PointsPerSecond = 40       # the number of points along a line per second of movement (based on the speed, determines animation framerate)
+PointsPerSecond = 50       # the number of points along a line per second of movement (based on the speed, determines animation framerate)
 speed = 4         # the speed at which the endeffector will move along the path in units per second
 angular_speed = math.pi
 
-linear_acceleration = 2
+linear_acceleration = 4
 angular_acceleration = 2
 
-rotational_units = "deg"   # can be "deg", "rev" or"rad", just changes the text
+rotational_units = "rev"   # can be "deg", "rev" or"rad", just changes the text
 distance_units = "m"       # doesn't actually mean anything, just changes the text
 
 
@@ -47,30 +47,31 @@ a = 4
 heightDiff = 1
 z_level = 0
 
+rotate = 0
 
-path1.addP(point(a, a, z_level-(heightDiff), math.pi, 0, math.pi))
-path1.addP(point(a, -a, z_level-(heightDiff / 2), math.pi, 0, math.pi))
-path1.addP(point(-a, -a, z_level, math.pi, 0, math.pi))
-path1.addP(point(-a, a, z_level+(heightDiff / 2), math.pi, 0, math.pi))
-path1.addP(point(a, a, z_level+(heightDiff), math.pi, 0, math.pi))
+path1.addP(point(a, a, z_level-(heightDiff), math.pi, rotate, math.pi))
+path1.addP(point(a, -a, z_level-(heightDiff / 2), math.pi, rotate, math.pi))
+path1.addP(point(-a, -a, z_level, math.pi, rotate, math.pi))
+path1.addP(point(-a, a, z_level+(heightDiff / 2), math.pi, rotate, math.pi))
+path1.addP(point(a, a, z_level+(heightDiff), math.pi, rotate, math.pi))
 
-path1.addP(point(a, a, z_level-(heightDiff), math.pi, 0, math.pi))
-path1.addP(point(a, -a, z_level-(heightDiff / 2), math.pi, 0, math.pi))
-path1.addP(point(-a, -a, z_level, math.pi, 0, math.pi))
-path1.addP(point(-a, a, z_level+(heightDiff / 2), math.pi, 0, math.pi))
-path1.addP(point(a, a, z_level+(heightDiff), math.pi, 0, math.pi))
 
-path1.addP(point(a, a, z_level+(heightDiff), math.pi, 0, math.pi))
-path1.addP(point(-a, a, z_level+(heightDiff / 2), math.pi, 0, math.pi))
-path1.addP(point(-a, -a, z_level, math.pi, 0, math.pi))
-path1.addP(point(a, -a, z_level-(heightDiff / 2), math.pi, 0, math.pi))
-path1.addP(point(a, a, z_level-(heightDiff), math.pi, 0, math.pi))
+path1.addP(point(a, a, z_level-(heightDiff), math.pi, rotate, math.pi))
+path1.addP(point(a, -a, z_level-(heightDiff / 2), math.pi, rotate, math.pi))
+path1.addP(point(-a, -a, z_level, math.pi, rotate, math.pi))
+path1.addP(point(-a, a, z_level+(heightDiff / 2), math.pi, rotate, math.pi))
 
-path1.addP(point(a, a, z_level+(heightDiff), math.pi, 0, math.pi))
-path1.addP(point(-a, a, z_level+(heightDiff / 2), math.pi, 0, math.pi))
-path1.addP(point(-a, -a, z_level, math.pi, 0, math.pi))
-path1.addP(point(a, -a, z_level-(heightDiff / 2), math.pi, 0, math.pi))
-path1.addP(point(a, a, z_level-(heightDiff), math.pi, 0, math.pi))
+path1.addP(point(a, a, z_level+(heightDiff), math.pi, rotate, math.pi))
+path1.addP(point(-a, a, z_level+(heightDiff / 2), math.pi, rotate, math.pi))
+path1.addP(point(-a, -a, z_level, math.pi, rotate, math.pi))
+path1.addP(point(a, -a, z_level-(heightDiff / 2), math.pi, rotate, math.pi))
+path1.addP(point(a, a, z_level-(heightDiff), math.pi, rotate, math.pi))
+
+path1.addP(point(a, a, z_level+(heightDiff), math.pi, rotate, math.pi))
+path1.addP(point(-a, a, z_level+(heightDiff / 2), math.pi, rotate, math.pi))
+path1.addP(point(-a, -a, z_level, math.pi, rotate, math.pi))
+path1.addP(point(a, -a, z_level-(heightDiff / 2), math.pi, rotate, math.pi))
+path1.addP(point(a, a, z_level-(heightDiff), math.pi, rotate, math.pi))
 
 
 
@@ -87,7 +88,6 @@ ps1.generatePoints()
 print("Calculating...")
 #print("POINTS: " + str(ps1.points))
 Parm, Pangles, Ppoints, Pkey = ps1.getPathData()
-
 
 
 """

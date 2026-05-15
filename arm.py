@@ -1,12 +1,20 @@
 import numpy as np
 
 class link:
-    def __init__(self, r, theta, a, alpha, joint='r'):
+    def __init__(self, r, theta, a, alpha, joint='r',upper_limit=None,lower_limit=None):
         self.r = r
         self.theta = theta
         self.a = a
         self.alpha = alpha
         self.joint = joint
+
+        if upper_limit is not None and lower_limit is not None:
+            if upper_limit != lower_limit:
+                self.lower_limit = min(upper_limit,lower_limit)
+                self.upper_limit = max(upper_limit,lower_limit)
+            
+            else:
+                raise ValueError("Limits must not be equal")
 
     def getTransform(self, x):
 
@@ -166,7 +174,7 @@ def getJacobian(arm, values):
             raise ValueError("invalid joint type")
         
     return jacobian
-       
+
 def getAngleOG(arm, P, guess=None,printOut=False,tol=0.001, maxIterations=300):
     x, y, z, roll, pitch, yaw = P
 
@@ -237,7 +245,7 @@ def getAngleOG(arm, P, guess=None,printOut=False,tol=0.001, maxIterations=300):
         
     raise ValueError("Could not find a solution within the maximum number of iterations for pos " + str(targetPos))
 
-def getAngle_LM(arm, P, guess=None,printOut=False,tol=0.001, maxIterations=300):
+def getAngle_LM(arm, P, guess=None,tol=0.001, maxIterations=300):
     x, y, z, roll, pitch, yaw = P
 
     maxIterations = int(len(arm) * 50)
@@ -272,81 +280,80 @@ def getAngle_LM(arm, P, guess=None,printOut=False,tol=0.001, maxIterations=300):
     lam = 0.01
     alpha = 1.0
     v = 2
+
+    curTransform = getForward(arm, guess)
+    current_error = get_solution_error(curTransform, targetPos, targetR)
+    current_error_norm = np.linalg.norm(current_error)
+    jacobian = getJacobian(arm, guess)
+
     for i in range(maxIterations):
-        curTransform = getForward(arm, guess)
-        curRot = curTransform[:3, :3]
-        curPos = curTransform[:3, 3]
+        cur_invJ = get_invJ(jacobian,lam)
+        test_guess = guess + alpha * (cur_invJ @ current_error)
 
-        errorPos = targetPos - curPos
-
-        R_err = targetR @ curRot.T
-
-        errorRot = 0.5 * np.array([
-            R_err[2,1] - R_err[1,2],
-            R_err[0,2] - R_err[2,0],
-            R_err[1,0] - R_err[0,1]
-        ])
-        
-        w_pos = 1.0
-        w_rot = 0.5
-
-        error = np.concatenate([
-            w_pos * errorPos,
-            w_rot * errorRot
-        ])
-
-        current_error_norm = np.linalg.norm(error)
-
-        if current_error_norm < tol:
-            return guess
-        
-        jacobian = getJacobian(arm, guess)
-        J = jacobian
-        invJ = J.T @ np.linalg.inv(J @ J.T + (lam**2) * np.eye(6))
-        
-        test_guess = guess + alpha * (invJ @ error)
         test_transform = getForward(arm, test_guess)
-        
-        test_rot = test_transform[:3, :3]
-        test_pos = test_transform[:3, 3]
-
-        new_error_pos = targetPos - test_pos
-
-        rot_error = targetR @ test_rot.T
-
-        new_error_rot = 0.5 * np.array([
-            rot_error[2,1] - rot_error[1,2],
-            rot_error[0,2] - rot_error[2,0],
-            rot_error[1,0] - rot_error[0,1]
-        ])
-        
-        w_pos = 1.0
-        w_rot = 0.5
-
-        new_error = np.concatenate([
-            w_pos * new_error_pos,
-            w_rot * new_error_rot
-        ])
-
-        if printOut:
-            print("Guess " + str(i + 1) + ": " + str(guess))
-
+        new_error = get_solution_error(test_transform, targetPos, targetR)
         new_error_norm = np.linalg.norm(new_error)
+
 
         if new_error_norm < current_error_norm:
             guess = test_guess
-            good_guess = False
-            lam /= v
-        
+            current_error = new_error
+            current_error_norm = new_error_norm
+
+            if current_error_norm < tol:
+                return guess
+            jacobian = getJacobian(arm, guess)
+            lam /= v 
+
         else:
             lam *= v
-            continue
+        
+        if lam > 1e10:
+            raise ValueError("Too high")
 
         
         
     raise ValueError("Could not find a solution within the maximum number of iterations for pos " + str(targetPos))
 
+def get_angles(arm, P, previous_solution, tol=0.001):
+    random_solution_max = 5
+    try:
+        getAngle_LM(arm, P, guess=previous_solution,tol=tol)
+    
+    except valueError:
+        for i in range(random_solution_max):
+            for j in range(len(arm)):
+                random_guess = np.random()
 
+
+
+
+def get_solution_error(curTransform, targetPos, targetR):
+    curRot = curTransform[:3, :3]
+    curPos = curTransform[:3, 3]
+
+    errorPos = targetPos - curPos
+
+    R_err = targetR @ curRot.T
+
+    errorRot = 0.5 * np.array([
+        R_err[2,1] - R_err[1,2],
+        R_err[0,2] - R_err[2,0],
+        R_err[1,0] - R_err[0,1]
+    ])
+    
+    w_pos = 1.0
+    w_rot = 0.5
+
+    error = np.concatenate([
+        w_pos * errorPos,
+        w_rot * errorRot
+    ])
+
+    return error
+
+def get_invJ(jacobian, lam):
+    return jacobian.T @ np.linalg.inv(jacobian @ jacobian.T + (lam**2) * np.eye(6))
 
 def solution_cleanup(Arm, values):
     primsatic_index = prismatic_indices(Arm)

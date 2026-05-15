@@ -31,6 +31,7 @@ def dispPath(Arm, Angles, Points, PPs, keyPos,L_unit=None,rot_unit=None):
 
         elif usr == "2":
             dispMatplot(Arm=Arm, PSangles=Angles, Points=Points,keyPos=keyPos,PPs=PPs)
+            break
 
 
 # PyQTgraph main function & sub-functions
@@ -730,7 +731,7 @@ def make_joint_text(Arm, valueSet, L_unit=None, rot_unit=None):
         modifier = 180 / np.pi
     
     elif rot_unit == "rev":
-        rot_unit_text = " rads"
+        rot_unit_text = " revs"
         modifier = 1 / (2 * np.pi)
 
     text = []
