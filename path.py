@@ -72,8 +72,8 @@ class pointSet:
         
         self.updateCheck()
     
-    def getPathData(self, printToggle=False): # used for plotting commands
-        angles = self.getPathAngles(printToggle)
+    def getPathData(self):
+        angles = self.getPathAngles()
         return self.Arm, angles, self.points, self.path.keyPos
 
     def applyTransform(self, meshItem, P1, P2):
@@ -202,14 +202,13 @@ class pointSet:
             pos_diff = np.linalg.norm(pos_diff_vec)
             rot_diff = np.linalg.norm(rot_diff_vec)
 
+            if rot_diff == 0 and pos_diff == 0:
+                continue
+
             pos_time = self.get_time(distance=pos_diff)
             rot_time = self.get_time(angle=rot_diff)
 
-            if pos_diff > rot_diff:
-                segment_time = pos_time
-            
-            else:
-                segment_time = rot_time
+            segment_time = max(pos_time, rot_time)
             
             num_points = max(1, int(segment_time * self.PPs))
 
@@ -226,7 +225,6 @@ class pointSet:
                 
                 else:
                     current_pos = cur_key_pos[:3]
-                
                 
                 if rot_diff != 0:
                     current_rot_fraction = self.get_value_fraction(current_time=current_time, total_time=actual_time,angle=rot_diff)
@@ -276,13 +274,19 @@ class pointSet:
             speed = self.speed
             acceleration = self.acceleration
             value = abs(distance)
-
+            true_time = self.get_time(distance=distance)
 
         elif distance is None:
             speed = self.angular_speed
             acceleration = self.angular_acceleration
             value = abs(angle)
+            true_time = self.get_time(angle=angle)
         
+        if true_time < total_time and true_time > 0:
+            scale_factor = true_time / total_time
+            speed *= scale_factor
+            acceleration *= (scale_factor ** 2)
+
         current_time = max(0, min(current_time, total_time))
         
         max_acceleration_time = speed / acceleration
@@ -315,7 +319,11 @@ class pointSet:
                 time_left = current_time - flat_time - max_acceleration_time
                 remaining_value = (speed * time_left) - ((acceleration / 2) * (time_left ** 2))
                 new_value = acceleration_distance + flat_distance + remaining_value
-        
+
+
+
+
+
         fraction = new_value / value
         return fraction
  
@@ -369,24 +377,8 @@ class pointSet:
 
                 self.points.append(pos)
  
-    def getPathAngles(self,printToggle=False):
-        
-        printInterval = int(3000 / len(self.Arm))
-        angles = []
-        #initial_angle = getAngleOG(self.Arm, self.points[0],printOut=printToggle)
-        initial_angle = getAngle_LM(self.Arm, self.points[0])
-        cleaned_angle = solution_cleanup(self.Arm, initial_angle)
-        angles.append(cleaned_angle)
-
-        for i in range(1, len(self.points)):
-            if printToggle:
-                print("NEW POINT "+str(i))
-            P = self.points[i]
-            #angles.append(getAngleOG(self.Arm, P,angles[i-1], printToggle))
-            angles.append(getAngle_LM(self.Arm, P,angles[i-1]))
-            if i % printInterval == 0:
-                print("Current at " + str(i))
-
+    def getPathAngles(self):
+        angles = get_pointset_angles(self.Arm,point_set=self.points)
         return angles
 
     def printPoints(self, offset=0):

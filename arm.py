@@ -15,6 +15,10 @@ class link:
             
             else:
                 raise ValueError("Limits must not be equal")
+        
+        else:
+            self.lower_limit = None
+            self.upper_limit = None
 
     def getTransform(self, x):
 
@@ -141,10 +145,6 @@ def getJacobian(arm, values):
     num_joints = len(arm)
     transforms = np.array(getArmTransform(arm,values))
     arm_pos = np.array(getAllPos(arm, values))
-
-
-    rotation_matrices = transforms[:,:3,:3]
-
     end_effector_pos = arm_pos[-1, :]
 
     jacobian = np.zeros((6, num_joints))
@@ -286,6 +286,9 @@ def getAngle_LM(arm, P, guess=None,tol=0.001, maxIterations=300):
     current_error_norm = np.linalg.norm(current_error)
     jacobian = getJacobian(arm, guess)
 
+    if current_error_norm < tol:
+        return guess
+
     for i in range(maxIterations):
         cur_invJ = get_invJ(jacobian,lam)
         test_guess = guess + alpha * (cur_invJ @ current_error)
@@ -315,18 +318,63 @@ def getAngle_LM(arm, P, guess=None,tol=0.001, maxIterations=300):
         
     raise ValueError("Could not find a solution within the maximum number of iterations for pos " + str(targetPos))
 
-def get_angles(arm, P, previous_solution, tol=0.001):
+def get_better_angles(arm, target_P, previous_solution=None, tol=0.001):
     random_solution_max = 5
+
+    if previous_solution is None:
+        previous_solution = []
+        for link in arm:
+            if link.joint == 'r':
+                previous_solution.append(link.theta)
+            
+            elif link.joint == 'p':
+                previous_solution.append(link.r)
+
     try:
-        getAngle_LM(arm, P, guess=previous_solution,tol=tol)
-    
-    except valueError:
+        return getAngle_LM(arm, target_P, guess=previous_solution,tol=tol)
+    except ValueError:
         for i in range(random_solution_max):
-            for j in range(len(arm)):
-                random_guess = np.random()
+            random_values = []
+            for link in arm:
+                if link.joint == 'r':
+                    u_limit = link.upper_limit
+                    l_limit = link.lower_limit
+                    if u_limit is None and l_limit is None:
+                        u_limit = np.pi
+                        l_limit = -np.pi
+                
+                elif link.joint == 'p':
+                    u_limit = link.upper_limit
+                    l_limit = link.lower_limit
+                    if u_limit is None and l_limit is None:
+                        u_limit = 10
+                        l_limit = -10
+                
+                random_guess = np.random.uniform(l_limit,u_limit)
+                random_values.append(random_guess)
+            
+            try:
+                return getAngle_LM(arm, target_P, guess=random_values)
+            except ValueError:
+                continue
+        
+        raise ValueError("Unreachable point.")
 
+def get_pointset_angles(arm, point_set, start_guess=None):
+    printInterval = int(3000 / len(arm))
+    angles = []
+    initial_angle = getAngle_LM(arm, point_set[0], start_guess)
+    cleaned_angle = solution_cleanup(arm, initial_angle)
+    angles.append(cleaned_angle)
 
+    for i in range(len(point_set) - 1):
+        current_point = point_set[i + 1]
 
+        angles.append(getAngle_LM(arm, current_point,angles[i]))
+        if i % printInterval == 0:
+            print("Current at " + str(i))
+
+    return angles
 
 def get_solution_error(curTransform, targetPos, targetR):
     curRot = curTransform[:3, :3]

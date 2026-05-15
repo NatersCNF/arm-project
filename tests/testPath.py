@@ -31,14 +31,14 @@ angles = [math.radians(30), math.radians(45), -math.radians(20), math.radians(60
 pos1 = arm.getAllPos(Arm, angles)
 
 
-PointsPerSecond = 50       # the number of points along a line per second of movement (based on the speed, determines animation framerate)
+PointsPerSecond = 75       # the number of points along a line per second of movement (based on the speed, determines animation framerate)
 speed = 4         # the speed at which the endeffector will move along the path in units per second
-angular_speed = math.pi
+angular_speed = 0.2
 
 linear_acceleration = 4
-angular_acceleration = 2
+angular_acceleration = 0.2
 
-rotational_units = "rev"   # can be "deg", "rev" or"rad", just changes the text
+rotational_units = "deg"   # can be "deg", "rev" or"rad", just changes the text
 distance_units = "m"       # doesn't actually mean anything, just changes the text
 
 
@@ -55,11 +55,13 @@ path1.addP(point(-a, -a, z_level, math.pi, rotate, math.pi))
 path1.addP(point(-a, a, z_level+(heightDiff / 2), math.pi, rotate, math.pi))
 path1.addP(point(a, a, z_level+(heightDiff), math.pi, rotate, math.pi))
 
+rotate = math.pi / 10
 
 path1.addP(point(a, a, z_level-(heightDiff), math.pi, rotate, math.pi))
 path1.addP(point(a, -a, z_level-(heightDiff / 2), math.pi, rotate, math.pi))
 path1.addP(point(-a, -a, z_level, math.pi, rotate, math.pi))
 path1.addP(point(-a, a, z_level+(heightDiff / 2), math.pi, rotate, math.pi))
+
 
 path1.addP(point(a, a, z_level+(heightDiff), math.pi, rotate, math.pi))
 path1.addP(point(-a, a, z_level+(heightDiff / 2), math.pi, rotate, math.pi))
@@ -67,16 +69,13 @@ path1.addP(point(-a, -a, z_level, math.pi, rotate, math.pi))
 path1.addP(point(a, -a, z_level-(heightDiff / 2), math.pi, rotate, math.pi))
 path1.addP(point(a, a, z_level-(heightDiff), math.pi, rotate, math.pi))
 
+rotate = 0
+
 path1.addP(point(a, a, z_level+(heightDiff), math.pi, rotate, math.pi))
 path1.addP(point(-a, a, z_level+(heightDiff / 2), math.pi, rotate, math.pi))
 path1.addP(point(-a, -a, z_level, math.pi, rotate, math.pi))
 path1.addP(point(a, -a, z_level-(heightDiff / 2), math.pi, rotate, math.pi))
 path1.addP(point(a, a, z_level-(heightDiff), math.pi, rotate, math.pi))
-
-
-
-
-
 
 path_types = ["p2p_trap", "p2p", "smooth"]
 current_arm = Arm
@@ -85,6 +84,7 @@ current_path_type = path_types[0]
 ps1 = pointSet(path1, current_arm, current_path_type, PPs=PointsPerSecond, v=speed, a=linear_acceleration, angular_v=angular_speed, angular_a=angular_acceleration)
 ps1.updateCheck()
 ps1.generatePoints()
+
 print("Calculating...")
 #print("POINTS: " + str(ps1.points))
 Parm, Pangles, Ppoints, Pkey = ps1.getPathData()
