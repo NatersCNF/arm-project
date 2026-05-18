@@ -7,11 +7,11 @@ from PyQt6 import QtCore
 import matplotlib.pyplot as plt
 import matplotlib.animation as animation
 
-from arm import getAllTransform, getAllPos, get_all_joint_pos
+from arm import getAllTransform, getAllPos, get_all_joint_pos, getJacobian, get_invJ, getRotationMatrices
 
 
 # gravity
-g_vec = [0, 0, -9.81] # m/s^2, down in the z
+g_vec = np.array([0, 0, -9.81]) # m/s^2, down in the z
 g = 9.81
 
 
@@ -21,25 +21,25 @@ def get_kinematic(Arm,valueSet,PPs, v_i=None,w_i=None,v_f=None,w_f=None,loop=Tru
 
     # initial velocity and angular at all joints in frame 0 (i) and frame -1 (f)
     if v_i is None or len(v_i) != 3:
-        v_i = np.zeros((1,3))
-    
-    if w_i is None or len(w_i) != 3:
-        w_i = np.zeros((1,3))
+        v_i = np.zeros(3)
+    else:
+        v_i = np.array(v_i)
 
-    
+    if w_i is None or len(w_i) != 3:
+        w_i = np.zeros(3)
+    else:
+        w_i = np.array(w_i)
+
     # assume default value (0) or the specified initial conditions to the final frame
     if v_f is None or len(v_f) != 3 or loop is True:
         v_f = v_i
+    else:
+        v_f = np.array(v_f)
 
     if w_f is None or len(w_f) != 3 or loop is True:
         w_f = w_i
-    
-    v_i = np.array(v_i)
-    w_i = np.array(w_i)
-
-    v_f = np.array(v_f)
-    w_f = np.array(w_f)
-    
+    else:
+        w_f = np.array(w_f)
     
     W_i = np.array([
                 [0, -w_i[2], w_i[1], v_i[0]],
@@ -99,7 +99,8 @@ def get_kinematic(Arm,valueSet,PPs, v_i=None,w_i=None,v_f=None,w_f=None,loop=Tru
     all_W.append(full_frame_f)
     return all_W
 
-def get_acceleration(W,interval):
+def get_acceleration(W,PPs):
+    interval = 1 / PPs
     W = np.array(W)
     cur_W = W[:-1]
     next_W = W[1:]
@@ -120,7 +121,7 @@ def get_motion_components(WorH): #  reutrns as vx, vy, yz, omegax, omegay, omega
     return v, omega
 
 class link_physics:
-    def __init__(self, length, kg_m=None, m=None, type="slender"):
+    def __init__(self, length, kg_m=None, m=None, radius=None, type="slender"):
         self.length = length
         
         if kg_m is None:
@@ -133,11 +134,18 @@ class link_physics:
 
         if type == "slender":
             self.I_Cm = slenderbar_Iyy(self.mass,self.length)
-            self.I_joint = slenderbar_Iy1(self.mass,self.length)
+            #self.I_joint = slenderbar_Iy1(self.mass,self.length)
+            self.I_Cm_tensor = slenderbar_I_tensor(self.mass, self.length)
             self.Cm_joint = self.length / 2                         # distance of center of mass from previous joint
+
+        elif type == "cylinder":
+            self.I_Cm = cylinder_Iyy(self.mass,self.length, radius)
+            self.I_joint = self.I_Cm + self.mass * ((self.length / 2) ** 2)
+            self.I_Cm_tensor = cylinder_I_tensor(self.mass, self.length, radius)
+            self.Cm_joint = self.length / 2
         
         else:
-            raise ValueError("currently can't do anything but a slender bar")
+            raise ValueError("currently can't do " + type)
         
     def get_link_kinetic_energy(self,angular,velocity):
         angular = np.array(angular)
@@ -174,11 +182,22 @@ class link_physics:
     def link_torque(self,angular_acceleration):
         torque = self.I_joint * angular_acceleration
         return torque
+    
+    def link_torque3D(self, angular_velocity, angular_acceleration, rotation_matrix):
+        I_tensor_rotated = rotate_I_tensor(self.I_Cm_tensor,rotation_matrix)
 
+        angular_velocity = np.array(angular_velocity)
+        angular_acceleration = np.array(angular_acceleration)
+
+        velocity_product = I_tensor_rotated @ angular_velocity
+        acceleration_product = I_tensor_rotated @ angular_acceleration
+
+        torque = acceleration_product + np.cross(angular_velocity, velocity_product)
+        return torque
 
 def get_arm_link_properties(points,type="normal"):
-    cur_joint = points[:-1]
-    next_joint = points[1:]
+    cur_joint = np.array(points[:-1])
+    next_joint = np.array(points[1:])
     vectors = next_joint - cur_joint
 
     if type == "normal":
@@ -216,23 +235,69 @@ def get_all_arm_properties(type, arm_positions=None, valueSet=None, Arm=None):
     
     return properties
 
-def get_simple_physics_arm(Arm,kg_m=None):
-    lengths = get_arm_link_properties(Arm=Arm,type="mag")
-    directions = get_arm_link_properties(Arm=Arm,type="unit")
+def get_cylinder_physics_arm(Arm,radius,kg_m=None):
+    points = getAllPos(Arm)
+    lengths = get_arm_link_properties(points,type="length")
 
     physics_arm = []
-    for length, direction in zip(lengths, directions):
-        link = link_physics(length=length,direction=direction,kg_m=kg_m,)
+    for length in lengths:
+        link = link_physics(length=length,kg_m=kg_m,radius=radius,type="cylinder")
         physics_arm.append(link)
     return physics_arm
-           
+
+def get_simple_physics_arm(Arm,kg_m=None):
+    points = getAllPos(Arm)
+    lengths = get_arm_link_properties(points,type="length")
+
+    physics_arm = []
+    for length in lengths:
+        link = link_physics(length=length,kg_m=kg_m,type="slender")
+        physics_arm.append(link)
+    return physics_arm
+
 def slenderbar_Iyy(m,L):
     Iyy = (1/12) * m * (L ** 2)
     return Iyy
 
+def cylinder_Iyy(m, L, r):
+    return (m / 12) * (L ** 2) + (m / 4) * (r ** 2)
+
 def slenderbar_Iy1(m,L):
     Iy1 = (1/3) * m * (L ** 2)
     return Iy1
+
+def slenderbar_I_tensor(m, L):
+    I_xx = 0
+    I_yy = (m / 12) * (L ** 2)
+    I_zz = (m / 12) * (L ** 2)
+    
+    I_tensor = np.zeros((3,3))
+    I_tensor[0][0] = I_xx
+    I_tensor[1][1] = I_yy
+    I_tensor[2][2] = I_zz
+
+    return I_tensor.tolist()
+
+def cylinder_I_tensor(m, L, r): 
+    I_xx = (m / 2) * (r ** 2)
+    I_yy = (m / 12) * (L ** 2) + (m / 4) * (r ** 2)
+    I_zz = (m / 12) * (L ** 2) + (m / 4) * (r ** 2)
+    
+    I_tensor = np.zeros((3, 3))
+    
+    I_tensor[0][0] = I_xx
+    I_tensor[1][1] = I_yy
+    I_tensor[2][2] = I_zz
+
+    return I_tensor.tolist()
+
+def rotate_I_tensor(I_tensor, rotation_matrix):
+    I_tensor = np.array(I_tensor)
+    rotation_matrix = np.array(rotation_matrix)
+    rotation_transpose = rotation_matrix.T
+
+    rotated_I = rotation_matrix @ I_tensor @ rotation_transpose
+    return rotated_I
 
 def get_all_CoM(Arm, scientific_Arm, valueSet):
 
@@ -262,103 +327,133 @@ def get_all_CoM(Arm, scientific_Arm, valueSet):
     
     return COM_pos
 
-def get_arm_energy(Arm, valueSet, PPs, scientific_Arm, angular=None, velocity=None,height_reference="zero"): # frame, joint, value (valueset)
-    if height_reference == "zero":
-        reference = 0
+def get_all_end_velocities(Arm, valueSet, PPs):
+    dt = 1 / PPs
+    all_velocities = []
+    for i in range(1, len(valueSet)):
+        q_current = np.array(valueSet[i])
+        q_prev = np.array(valueSet[i - 1])
+        q_dot = (q_current - q_prev) / dt
+
+        jacobian = getJacobian(Arm, q_current)
+        end_velocity = jacobian @ q_dot
+        # linear is 0:3, angular is 3:6
+        all_velocities.append(end_velocity.tolist())
+    return all_velocities
+
+def get_all_CoM_pos(Arm, scientific_Arm, valueSet, armPositions=None):
+    if armPositions is None:
+        joint_pos = np.array(get_all_joint_pos(Arm,valueSet))
+    else:
+        joint_pos = np.array(armPositions)
+
+    joint_directions = np.array(get_all_arm_properties(type="unit",arm_positions=joint_pos,valueSet=valueSet))
+
+    for i, scientific_link in enumerate(scientific_Arm):
+        CoM_pos = scientific_link.Cm_joint
+        joint_directions[:, i, :] *= CoM_pos
     
-    W = get_kinematic(Arm,valueSet=valueSet, PPs=PPs)
-    motion_components = get_motion_components(W)
+    CoM_positions = joint_pos[:, :-1, :] + joint_directions
+    return CoM_positions
 
-    if velocity is None:
-        velocity = motion_components[0]
+def get_CoM_kin(Arm, scientific_Arm, valueSet, PPs):
+    joint_pos = np.array(get_all_joint_pos(Arm,valueSet))
+    CoM_pos = get_all_CoM_pos(Arm, scientific_Arm, valueSet, joint_pos)
 
-    if angular is None:
-        angular = motion_components[1]
+    dt = 1 / PPs
 
-    arm_positions = []
-    for values in valueSet:
-        pos = getAllPos(Arm,values)
-        arm_positions.append(pos)
+    CoM_pos_diff = np.diff(CoM_pos, axis=0)
+    CoM_velocity = CoM_pos_diff / dt
 
-    CoM_pos = np.array(get_all_CoM(Arm, scientific_Arm, valueSet))
+    CoM_velocity_diff = np.diff(CoM_velocity, axis=0)
+    CoM_acceleration = CoM_velocity_diff / dt
 
-    heights = CoM_pos[:, :, 2] #only z
+    CoM_velocity = np.concatenate([np.zeros((1, *CoM_velocity.shape[1:])), CoM_velocity], axis=0)
+    CoM_acceleration = np.concatenate([np.zeros((2, *CoM_acceleration.shape[1:])), CoM_acceleration], axis=0)
 
-    all_energy = []
-    for frame_velocity, frame_angular, frame_height in zip(velocity, angular, heights):
-        frame_energy = []
+    return CoM_velocity, CoM_acceleration
 
-        for joint_velocity, joint_angular, joint_height, scientificlink in zip(frame_velocity, frame_angular, frame_height, scientific_Arm):
-            link_energy = scientificlink.link_energy(joint_height, joint_angular, joint_velocity, reference)
-            frame_energy.append(link_energy)
-        all_energy.append(frame_energy)
+def get_all_end_pos(Arm, valueSet):
+    pos = get_all_joint_pos(Arm, valueSet)
+    pos = np.array(pos)
+    end = pos[:, -1, :]
+    return end.tolist()
 
-    return all_energy
+def get_all_end_velocity(end_points, PPs):
+    end_points = np.array(end_points)
+    dt = 1 / PPs
+    velocity = np.insert(np.diff(end_points, axis=0) / dt, 0, np.zeros(3), axis=0)
+    return velocity.tolist()
 
-def find_arm_forces(scientific_Arm, accelerations):
-    forces = []
-    for scientific_link, acceleration in zip(scientific_Arm, accelerations):
-        forces.append(scientific_link.mass * acceleration)
-    return forces
+def get_all_end_acceleration(velocity, PPs):
+    dt = 1 / PPs
+    velocity = np.array(velocity)
+    zero = np.zeros((1, 3))
+    acceleration = np.concatenate([zero, (np.diff(velocity, axis=0) / dt), zero], axis=0)
+    return acceleration.tolist()
 
-def get_all_forces(scientific_Arm, acceleration_set):
-    forces = []
-    for accelerations in acceleration_set:
-        frame_accelerations = find_arm_forces(scientific_Arm, accelerations)
-        forces.append(frame_accelerations)
-    
-    return forces
+def get_all_torque(Arm, scientific_Arm, valueSet, PPs, end_effector_mass=0):
+    end_gravity_force = g_vec * end_effector_mass
+    end_pos = get_all_end_pos(Arm, valueSet)
+    end_acceleration = np.array(get_all_end_acceleration(get_all_end_velocity(end_pos, PPs), PPs))
+        
+    all_W = get_kinematic(Arm,valueSet,PPs)
+    all_H = get_acceleration(all_W,PPs)
 
-def get_joint_velocities(Arm, valueSet, PPs, v_i=None,v_f=None):
-    arm_positions = get_all_joint_pos(Arm,valueSet)
-    interval = 1 / PPs
-    if v_i is None:
-        v_i = np.array([0, 0, 0])
-    
-    if v_f is None:
-        v_f = v_i
+    joint_angular_velocity = get_motion_components(all_W)[1]
+    joint_angular_acceleration = get_motion_components(all_H)[1]
 
-    joint_num = len(Arm)
-    
-    velocities = []
-    v_i = np.tile(v_i, (joint_num, 1, 1))
-    v_f = np.tile(v_f, (joint_num, 1, 1))
-    velocities.append(v_i)
+    frame_num = len(joint_angular_acceleration)
+    joint_num = len(scientific_Arm)
 
-    prev_pos = arm_positions[:-1, :, :, :]
-    pos = arm_positions[1:, :, :, :]
+    joint_pos = np.array(get_all_joint_pos(Arm,valueSet))
+    CoM_pos = get_all_CoM_pos(Arm, scientific_Arm, valueSet, joint_pos)
+    CoM_acceleration = (get_CoM_kin(Arm, scientific_Arm, valueSet, PPs))[1]
+    rotation_matrices = getRotationMatrices(Arm,valueSet)
 
-    displacement = pos - prev_pos
-    rate = displacement / interval
+    total_torque = []
+    for i in range(frame_num):
+        frame_torque = []
+        for j in range(joint_num):
+            joint_torque_sum = np.zeros(3)
+            current_joint_pos = joint_pos[i][j]
 
-    velocities.extend(rate)
-    velocities.append(v_f)
+            for k in range(joint_num - 1, j - 1, -1):
+                scientific_link = scientific_Arm[k]
+                link_mass = scientific_link.mass
 
-    return velocities
+                joint_omega = joint_angular_velocity[i][k]
+                joint_alpha = joint_angular_acceleration[i][k]
 
-def get_joint_accelerations(velocities,PPs):
-    interval = 1 / PPs
-    prev_velocity = velocities[:-1, :, :, :]
-    velocity = velocities[1:, :, :, :]
+                moment_arm = CoM_pos[i][k] - current_joint_pos
 
-    diff = velocities - prev_velocity
-    acceleration = diff / interval
-    return acceleration
+                # inertial torque
+                rotation_matrix = rotation_matrices[i][k]
+                rotational_torque = scientific_link.link_torque3D(joint_omega, joint_alpha, rotation_matrix)
 
+                # gravity moment torque
+                gravity_force = g_vec * link_mass
+                gravity_torque = np.cross(moment_arm, gravity_force)
 
+                # Linear inertia
+                linear_torque = np.cross(moment_arm, CoM_acceleration[i][k] * link_mass)
+                
+                #velocity_cross = np.cross(joint_omega, scientific_link.I_Cm_tensor @ joint_omega)
+                #joint_torque_sum += velocity_cross
 
+                joint_torque_sum += (rotational_torque + gravity_torque + linear_torque)
+            
+            if end_effector_mass != 0:
+                end_moment_arm = end_pos[i] - current_joint_pos
+                end_weight_torque = np.cross(end_moment_arm, end_gravity_force)
+                
+                end_force = end_acceleration[i] * end_effector_mass
+                end_linear_torque = np.cross(end_moment_arm, end_force)
 
-    
+                joint_torque_sum += end_weight_torque + end_linear_torque
+            
+            frame_torque.append(joint_torque_sum.tolist())
 
+        total_torque.append(frame_torque)
 
-
-
-
-
-
-
-
-
-
-
-
+    return total_torque

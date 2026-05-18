@@ -22,12 +22,14 @@ IndustrialArm.append(arm.link(r=1, theta=0, a=0, alpha=0))
 
 
 Arm = []
-Arm.append(arm.link(1, 1, 0, math.pi/2))
+Arm.append(arm.link(1, 3, 0, math.pi/2))
 Arm.append(arm.link(0, 0, 3, 0))
 Arm.append(arm.link(3, 0, 0, math.pi/2))
 Arm.append(arm.link(3, 0, 0, math.pi/2))
 Arm.append(arm.link(1, 0, 0, -math.pi/2))
 Arm.append(arm.link(3, 0, 0, 0))
+
+
 
 Scara = []
 Scara.append(arm.link(r=2, theta=0, a=0, alpha=0, joint='r'))
@@ -42,9 +44,9 @@ angles = [math.radians(30), math.radians(45), -math.radians(20), math.radians(60
 pos1 = arm.getAllPos(Arm, angles)
 
 
-PointsPerSecond = 75       # the number of points along a line per second of movement (based on the speed, determines animation framerate)
+PointsPerSecond = 60       # the number of points along a line per second of movement (based on the speed, determines animation framerate)
 speed = 4         # the speed at which the endeffector will move along the path in units per second
-angular_speed = 0.5
+angular_speed = 2
 
 linear_acceleration = 4
 angular_acceleration = 0.5
@@ -56,7 +58,7 @@ distance_units = "m"       # doesn't actually mean anything, just changes the te
 
 a = 4
 heightDiff = 1
-z_level = 1
+z_level = 2
 rotate = 0
 """
 spiral = path()
@@ -105,51 +107,64 @@ spiral_path.generatePoints()
 Parm, Pangles, Ppoints, Pkey = spiral_path.getPathData()
 plot.dispPath(Arm=Parm,Angles=Pangles,Points=Ppoints,PPs=PointsPerSecond,keyPos=Pkey,L_unit=distance_units,rot_unit=rotational_units)
 """
-rotate_x = math.pi
-rotate_y = 0
 
+rotate_x = math.pi / 2
+rotate_y = math.pi / 2
+rotate_z = math.pi / 2
 
 path1 = path()
-path1.addP(point(a, a, z_level-(heightDiff), rotate_x, rotate_y, math.pi))
-path1.addP(point(a, -a, z_level-(heightDiff / 2), rotate_x, rotate_y, math.pi))
-rotate_x = -math.pi
-path1.addP(point(-a, -a, z_level, rotate_x, rotate_y, math.pi))
-rotate_y = 5
-path1.addP(point(-a, a, z_level+(heightDiff / 2), rotate_x, rotate_y, math.pi))
-path1.addP(point(a, a, z_level+(heightDiff), rotate_x, rotate_y, math.pi))
 
-path1.addP(point(a, a, z_level-(heightDiff), rotate_x, rotate_y, math.pi))
-path1.addP(point(a, -a, z_level-(heightDiff / 2), rotate_x, rotate_y, math.pi))
+path1.addP(point(a, a, z_level-(heightDiff), math.pi, 0, math.pi))
 
-rotate_x = math.pi
+path1.addP(point(a, a, z_level-(heightDiff), rotate_x, rotate_y, rotate_z))
+path1.addP(point(a, -a, z_level-(heightDiff / 2), rotate_x, rotate_y, rotate_z))
+path1.addP(point(-a, -a, z_level, rotate_x, rotate_y, rotate_z))
+path1.addP(point(-a, a, z_level+(heightDiff / 2), rotate_x, rotate_y, rotate_z))
+path1.addP(point(a, a, z_level+(heightDiff), rotate_x, rotate_y, rotate_z))
+
+rotate_x = 0
 rotate_y = 0
+rotate_z = math.pi / 2
 
-path1.addP(point(-a, -a, z_level, rotate_x, rotate_y, math.pi))
-path1.addP(point(-a, a, z_level+(heightDiff / 2), rotate_x, rotate_y, math.pi))
+path1.addP(point(a, a, z_level-(heightDiff), rotate_x, rotate_y, rotate_z))
+path1.addP(point(a, -a, z_level-(heightDiff / 2), rotate_x, rotate_y, rotate_z))
+path1.addP(point(-a, -a, z_level, rotate_x, rotate_y, rotate_z))
+path1.addP(point(-a, a, z_level+(heightDiff / 2), rotate_x, rotate_y, rotate_z))
+path1.addP(point(a, a, z_level+(heightDiff), rotate_x, rotate_y, rotate_z))
 
-rotate_x = -math.pi
-rotate_y = math.pi
+rotate_x = 0
+rotate_y = math.pi / 2
+rotate_z = 0
 
+path1.addP(point(a, a, z_level-(heightDiff), rotate_x, rotate_y, rotate_z))
+path1.addP(point(a, -a, z_level-(heightDiff / 2), rotate_x, rotate_y, rotate_z))
+path1.addP(point(-a, -a, z_level, rotate_x, rotate_y, rotate_z))
+path1.addP(point(-a, a, z_level+(heightDiff / 2), rotate_x, rotate_y, rotate_z))
+path1.addP(point(a, a, z_level+(heightDiff), rotate_x, rotate_y, rotate_z))
 
-path1.addP(point(a, a, z_level+(heightDiff), rotate_x, rotate_y, math.pi))
-path1.addP(point(-a, a, z_level+(heightDiff / 2), rotate_x, rotate_y, math.pi))
-path1.addP(point(-a, -a, z_level, rotate_x, rotate_y, math.pi))
-path1.addP(point(a, -a, z_level-(heightDiff / 2), rotate_x, rotate_y, math.pi))
-path1.addP(point(a, a, z_level-(heightDiff), rotate_x, rotate_y, math.pi))
-
-
-path1.addP(point(a, a, z_level+(heightDiff), rotate_x, rotate_y, math.pi))
-path1.addP(point(-a, a, z_level+(heightDiff / 2), rotate_x, rotate_y, math.pi))
-path1.addP(point(-a, -a, z_level, rotate_x, rotate_y, math.pi))
-path1.addP(point(a, -a, z_level-(heightDiff / 2), rotate_x, rotate_y, math.pi))
-path1.addP(point(a, a, z_level-(heightDiff), rotate_x, rotate_y, math.pi))
-
-rotate_x = math.pi
+rotate_x = 0
 rotate_y = 0
+rotate_z = math.pi / 2
 
-path1.addP(point(a, a, z_level-(heightDiff), rotate_x, rotate_y, math.pi))
+path1.addP(point(a, a, z_level-(heightDiff), rotate_x, rotate_y, rotate_z))
+path1.addP(point(a, -a, z_level-(heightDiff / 2), rotate_x, rotate_y, rotate_z))
+path1.addP(point(-a, -a, z_level, rotate_x, rotate_y, rotate_z))
+path1.addP(point(-a, a, z_level+(heightDiff / 2), rotate_x, rotate_y, rotate_z))
+path1.addP(point(a, a, z_level+(heightDiff), rotate_x, rotate_y, rotate_z))
 
-path_types = ["p2p_trap", "p2p", "smooth"]
+if True:
+    limit_low = -1 * np.pi
+    limit_high = 1 * np.pi
+    for i in range(len(path1.keyPos)):
+        rotate_x = float(np.random.uniform(limit_low, limit_high))
+        rotate_y = float(np.random.uniform(limit_low, limit_high))
+        rotate_z = float(np.random.uniform(limit_low, limit_high))
+
+        path1.keyPos[i][3] = rotate_x
+        path1.keyPos[i][4] = rotate_y
+        path1.keyPos[i][5] = rotate_z
+
+path_types = ["p2p_trap", "p2p", "smooth_trap", "smooth"]
 current_arm = IndustrialArm
 current_path_type = path_types[0]
 

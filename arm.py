@@ -177,7 +177,6 @@ def getJacobian(arm, values):
 
 def getAngleOG(arm, P, guess=None,printOut=False,tol=0.001, maxIterations=300):
     x, y, z, roll, pitch, yaw = P
-
     maxIterations = int(len(arm) * 50)
 
     if maxIterations < 200:
@@ -359,6 +358,22 @@ def get_better_angles(arm, target_P, previous_solution=None, tol=0.001):
                 continue
         
         raise ValueError("Unreachable point.")
+
+def get_pointset_anglesOLD(arm, point_set, start_guess=None):
+    printInterval = int(3000 / len(arm))
+    angles = []
+    initial_angle = getAngleOG(arm, point_set[0], start_guess)
+    cleaned_angle = solution_cleanup(arm, initial_angle)
+    angles.append(cleaned_angle)
+
+    for i in range(len(point_set) - 1):
+        current_point = point_set[i + 1]
+
+        angles.append(getAngleOG(arm, current_point,angles[i]))
+        if i % printInterval == 0:
+            print("Current at " + str(i))
+
+    return angles
 
 def get_pointset_angles(arm, point_set, start_guess=None):
     printInterval = int(3000 / len(arm))

@@ -39,7 +39,7 @@ class path:
             P = point(startPoints[-1][0], startPoints[-1][1], startPoints[-1][2], 0, 0, 0)
         
         self.addP(P)
-            
+
 class pointSet:
     def __init__(self, path, Arm, type="p2p", PPs=30, v=1,a=0.5,angular_v=1,angular_a=0.5,live=False):
         self.nP = 0
@@ -49,7 +49,7 @@ class pointSet:
         self.angular_speed = abs(angular_v)
         self.angular_acceleration = abs(angular_a)
         
-        if not(type == "p2p" or type == "smooth" or type == "p2p_trap"):
+        if not(type == "p2p" or type == "smooth" or type == "p2p_trap" or type == "smooth_trap"):
             raise ValueError("invalid type")
         self.type = type
         
@@ -71,7 +71,7 @@ class pointSet:
             raise ValueError("not enough points in the path")
         
         self.updateCheck()
-    
+
     def getPathData(self):
         angles = self.getPathAngles()
         return self.Arm, angles, self.points, self.path.keyPos
@@ -98,7 +98,7 @@ class pointSet:
 
     def updatenP(self):
         self.nP = len(self.path.keyPos)
-    
+
     def generatePoints(self):
         if self.type == "smooth":
             self.generateSpline()
@@ -108,6 +108,9 @@ class pointSet:
         
         elif self.type == "p2p_trap":
             self.generateTrapezoidP2P()
+        
+        elif self.type == "smooth_trap":
+            self.generateTrapezoidSpline()
         
         print("Number of points: " + str(len(self.points)))
 
@@ -205,12 +208,8 @@ class pointSet:
             if rot_diff == 0 and pos_diff == 0:
                 continue
 
-            pos_time = self.get_time(distance=pos_diff)
-            rot_time = self.get_time(angle=rot_diff)
-
-            segment_time = max(pos_time, rot_time)
-            
-            num_points = max(1, int(segment_time * self.PPs))
+            segment_time = self.get_longer(pos_diff, rot_diff)
+            num_points = max(1, int(np.ceil(segment_time * self.PPs)))
 
             actual_time = num_points / self.PPs
 
@@ -233,8 +232,6 @@ class pointSet:
                 else:
                     current_rot = cur_key_pos[3:]
                 
-        
-
                 num_decimals = 10
 
                 rounded_pos = np.round(current_pos,num_decimals).tolist()
@@ -268,7 +265,7 @@ class pointSet:
             remaining_value = value - (max_acceleration_value * 2)
             const_speed_time = remaining_value / speed
             return const_speed_time + (max_acceleration_time * 2)
-        
+
     def get_value_fraction(self, current_time, total_time, angle=None,distance=None):
         if angle is None:
             speed = self.speed
@@ -326,7 +323,13 @@ class pointSet:
 
         fraction = new_value / value
         return fraction
- 
+
+    def get_longer(self, pos_diff, rot_diff):
+        pos_time = self.get_time(distance=pos_diff)
+        rot_time = self.get_time(angle=rot_diff)
+        segment_time = max(pos_time, rot_time)
+        return segment_time
+
     def generateSpline(self):
         self.points.clear()
         m = []                  # assuming start & stop at first and last point
@@ -376,7 +379,63 @@ class pointSet:
                 pos = pos + [roll, pitch, yaw]
 
                 self.points.append(pos)
- 
+
+    def generateTrapezoidSpline(self):
+        self.points.clear()
+        m = []                  # assuming start & stop at first and last point
+        m.append([0, 0, 0])
+        dt = 1 / self.PPs
+
+        key_pos = self.path.keyPos
+        for i in range(1, (self.nP - 1)):
+            PA = key_pos[i + 1]
+            PB = key_pos[i - 1]
+            
+            mx = (PA[0] - PB[0]) / 2
+            my = (PA[1] - PB[1]) / 2
+            mz = (PA[2] - PB[2]) / 2
+            
+            slope = [mx, my, mz]
+            m.append(slope)
+        m.append([0, 0, 0])
+        
+        for i in range(0, self.nP - 1):
+            cur_key_pos = np.array(key_pos[i])
+            next_key_pos = np.array(key_pos[i + 1])
+
+            pos_diff_vec = next_key_pos[:3] - cur_key_pos[:3]
+            rot_diff_vec = next_key_pos[3:] - cur_key_pos[3:]
+            
+            pos_diff = np.linalg.norm(pos_diff_vec)
+            rot_diff = np.linalg.norm(rot_diff_vec)
+
+            segment_time = self.get_longer(pos_diff, rot_diff)
+            num_points = max(1, int(segment_time * self.PPs))
+            actual_time = num_points / self.PPs
+
+            Pi = key_pos[i][:3]
+            Pi1 = key_pos[i + 1][:3]
+            mi = m[i]
+            mi1 = m[i + 1]
+
+            for j in range(1, num_points+1):
+                current_time = j * dt
+
+                if pos_diff >= rot_diff and pos_diff > 0:
+                    t = self.get_value_fraction(current_time, actual_time, distance=pos_diff)
+
+                elif rot_diff > 0:
+                    t = self.get_value_fraction(current_time, actual_time, angle=rot_diff)
+
+                else:
+                    t = 1
+
+                pos = getPatT(t, Pi, Pi1, mi, mi1)
+
+                current_rot = cur_key_pos[3:] + (rot_diff_vec * t)
+
+                self.points.append(pos + current_rot.tolist())
+
     def getPathAngles(self):
         angles = get_pointset_angles(self.Arm,point_set=self.points)
         return angles
@@ -396,7 +455,7 @@ class pointSet:
             dz = round(dz, 6) + z
 
             print(f"\\operatorname{{vector}}(P_{{{i+offset}}}, ({dx}, {dy}, {dz}))\n")
-    
+
     def printAllPoints(self):
         print("p2p points:")
         print("")
@@ -424,8 +483,8 @@ def getH(h, t):
         return h11
     else:
         raise ValueError("not a valid h function")
-    
-def getPatT(t, Pi, Pi1, mi, mi1):    
+
+def getPatT(t, Pi, Pi1, mi, mi1):
     Pi = np.array(Pi)
     Pi1 = np.array(Pi1)
     mi = np.array(mi)

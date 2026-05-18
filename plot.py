@@ -8,7 +8,7 @@ import matplotlib.pyplot as plt
 import matplotlib.animation as animation
 
 from arm import getAllPos, getAllRotPos, getRotationMatrices, prismatic_indices
-from physics import get_all_arm_properties
+from physics import *
 
 def dispPath(Arm, Angles, Points, PPs, keyPos,L_unit=None,rot_unit=None):
     print("Done calculating!")
@@ -39,17 +39,23 @@ jointR = 0.3
 
 def dispPyqt(Arm, PSangles, Points, keyPos, margin=2,PPs=30,L_unit=None,rot_unit=None):   
     axisStroke = 3
+    
     show_markers = False
+    show_pie = False
+    show_text = True
+    color_joints = True
+
     keyPos = np.array(keyPos)[:, 0:3]
     pathPoints = np.array(Points)[:, :3]
     armPositions = np.array([getAllPos(Arm, angle) for angle in PSangles])
     endPos = armPositions[:, -1, :]
 
-    primsatic_index = prismatic_indices(Arm)
+    prismatic_index = prismatic_indices(Arm)
+
     link_directions = np.array(get_all_arm_properties(arm_positions=armPositions,type="unit"))
 
     prismatic_signs = []
-    for p_index in primsatic_index:
+    for p_index in prismatic_index:
         z_direction = link_directions[:, p_index, :]
 
         vertical_sign = np.sign(z_direction[:, 2])
@@ -78,11 +84,22 @@ def dispPyqt(Arm, PSangles, Points, keyPos, margin=2,PPs=30,L_unit=None,rot_unit
     #    arm links
     linkCylinders = makeMeshHelperSet(P1set=linkP1set[0], P2set=linkP2set[0], view=view, type="link")
     
-
     #  joints
-    pie_res = 100
     # cylinders
-    jointCylinders = makeMeshHelperSet(P1set=jointP1set[0], P2set=jointP2set[0], view=view, type="joint")
+    pie_res = 100
+    
+    scientific_arm = get_cylinder_physics_arm(Arm=Arm,radius=jointR, kg_m=1)
+    #scientific_arm = get_simple_physics_arm(Arm, 1)
+    torque = get_all_torque(Arm,scientific_arm,PSangles,PPs,end_effector_mass=10)
+    torque = np.linalg.norm(torque, axis=2)
+
+    if color_joints:
+        color_property = torque
+        joint_colors = get_color_intensity(values=color_property,absolute_mode=True,mode="local",prismatic_index=prismatic_index)
+        jointCylinders = makeMeshHelperSet(P1set=jointP1set[0], P2set=jointP2set[0], view=view, type="joint", colors=joint_colors[0])
+    
+    else:
+        jointCylinders = makeMeshHelperSet(P1set=jointP1set[0], P2set=jointP2set[0], view=view, type="joint")
 
     # markers
     if show_markers:
@@ -91,15 +108,21 @@ def dispPyqt(Arm, PSangles, Points, keyPos, margin=2,PPs=30,L_unit=None,rot_unit
         view.addItem(markerLine)
     
     # pies
-    arcSet = getArcSet(Arm=Arm,valueSet=PSangles,jointPoints=jointPoints_out,armPositions=armPositions,resolution=pie_res)
-    face_colors = get_colors(valueSet=PSangles,arc_set=arcSet,Arm=Arm,resolution=pie_res)
-    arcFaces = getArcFaceSet(arcSet)
-    arc1_meshes, arc2_meshes = pieMeshMaker(arcSet, arcFaces, view, face_colors)
+    if show_pie:
+        arcSet = getArcSet(Arm=Arm,valueSet=PSangles,jointPoints=jointPoints_out,armPositions=armPositions,resolution=pie_res)
+        face_colors = get_colors(valueSet=PSangles,arc_set=arcSet,Arm=Arm,resolution=pie_res)
+        arcFaces = getArcFaceSet(arcSet)
+        arc1_meshes, arc2_meshes = pieMeshMaker(arcSet, arcFaces, view, face_colors)
 
     # text
-    text_points = np.array(adjusted_text_points(Arm=Arm,valueSet=PSangles,armPositions=armPositions,offset=text_offset))
-    joint_text = make_joint_text(Arm=Arm,valueSet=PSangles,L_unit=L_unit,rot_unit=rot_unit)
-    joint_text_items = make_text_item_set(text_points=text_points,text_valueSet=joint_text, view=view)
+    if show_text:
+        text_value = torque
+        text_points = np.array(adjusted_text_points(Arm=Arm,valueSet=PSangles,armPositions=armPositions,offset=text_offset))
+        #joint_text = make_joint_text(Arm=Arm,valueSet=text_value,L_unit=L_unit,rot_unit=rot_unit)
+        joint_text = make_joint_text(Arm=Arm,valueSet=text_value,other_unit="Nm")
+        joint_text_items = make_text_item_set(text_points=text_points,text_valueSet=joint_text, view=view)
+
+        
 
     #    endeffector
     sphereData = gl.MeshData.sphere(rows=20,cols=20,radius=(jointR * 1.1))
@@ -136,9 +159,10 @@ def dispPyqt(Arm, PSangles, Points, keyPos, margin=2,PPs=30,L_unit=None,rot_unit
         for i in range(len(linkCylinders)):
             current_cylinder = linkCylinders[i]
             P1, P2 = linkP1set[f][i], linkP2set[f][i]
+            
 
-            if i in primsatic_index:
-                index = primsatic_index.index(i)
+            if i in prismatic_index:
+                index = prismatic_index.index(i)
                 view.removeItem(current_cylinder)
                 
                 if prismatic_signs[index][f] < 0:
@@ -152,28 +176,38 @@ def dispPyqt(Arm, PSangles, Points, keyPos, margin=2,PPs=30,L_unit=None,rot_unit
             else:
                 applyTransform(current_cylinder, P1, P2)
 
-        for i in range(len(arcSet[0][f])):
-            new_arc1_verts = arcSet[0][f][i]
-            new_arc2_verts = arcSet[1][f][i]
-            new_faces = arcFaces[f][i]
-            new_colors = face_colors[f][i] if face_colors else None
+        
+        if show_pie:
+            for i in range(len(arcSet[0][f])):
+                new_arc1_verts = arcSet[0][f][i]
+                new_arc2_verts = arcSet[1][f][i]
+                new_faces = arcFaces[f][i]
+                new_colors = face_colors[f][i] if face_colors else None
 
-            arc1_meshes[i].setMeshData(vertexes=new_arc1_verts, faces=new_faces, faceColors=new_colors)
-            arc2_meshes[i].setMeshData(vertexes=new_arc2_verts, faces=new_faces, faceColors=new_colors)
+                arc1_meshes[i].setMeshData(vertexes=new_arc1_verts, faces=new_faces, faceColors=new_colors)
+                arc2_meshes[i].setMeshData(vertexes=new_arc2_verts, faces=new_faces, faceColors=new_colors)
 
-        for i in range(len(joint_text_items)):
-            new_text = joint_text[f][i]
-            
-            new_text = joint_text[f][i]
-            new_points = text_points[f][i]
-            
-            joint_text_items[i].setData(pos=new_points, text=new_text)
+        if show_text:
+            for i in range(len(joint_text_items)):
+                new_text = joint_text[f][i]
+                
+                new_text = joint_text[f][i]
+                new_points = text_points[f][i]
+                
+                joint_text_items[i].setData(pos=new_points, text=new_text)
             
         for i in range(len(jointCylinders)):
             P1, P2 = jointP1set[f][i], jointP2set[f][i]
+
             applyTransform(jointCylinders[i][0], P1, P2)
             applyTransform(jointCylinders[i][1], P1, P2)
             applyTransform(jointCylinders[i][2], P2, P1)
+            
+            if color_joints:
+                color = joint_colors[f][i]
+                jointCylinders[i][0].setColor(color)
+                jointCylinders[i][1].setColor(color)
+                jointCylinders[i][2].setColor(color)
 
         state['curF'] = (f + 1) % len(armPositions)
     
@@ -198,7 +232,7 @@ def dispPyqt(Arm, PSangles, Points, keyPos, margin=2,PPs=30,L_unit=None,rot_unit
 
     app.exec()
 
-def getCylinderMesh(P1, P2, type, resolution=20):
+def getCylinderMesh(P1, P2, type, color=None, resolution=20):
     vec = P2 - P1
     normLength = np.linalg.norm(vec)
     short_link = 0.0000001
@@ -210,17 +244,20 @@ def getCylinderMesh(P1, P2, type, resolution=20):
     linkageR = 0.2
 
     if type == "link":
-        color=(0.5, 0.8, 1.0, 1.0)
+        if color is None:
+            color=(0.5, 0.8, 1.0, 1.0)
         radiusC = linkageR
         Data = gl.MeshData.cylinder(rows=1, cols=20, radius=[radiusC, radiusC], length=link_length)
     
     elif type == "joint":
-        color=(0.6, 0.98, 0.6, 1.0)
+        if color is None:
+            color=(0.6, 0.98, 0.6, 1.0)
         radiusC = jointR
         Data = gl.MeshData.cylinder(rows=1, cols=resolution, radius=[radiusC, radiusC], length=link_length)
     
     elif type == "circle":
-        color=(0.6, 0.98, 0.6, 1.0)
+        if color is None:
+            color=(0.6, 0.98, 0.6, 1.0)
         radiusC = jointR
         Data = gl.MeshData.cylinder(rows=1, cols=resolution, radius=[radiusC, 0], length=0.01)
     
@@ -244,7 +281,7 @@ def getCylinderMesh(P1, P2, type, resolution=20):
     
     return mesh
 
-def makeMeshHelperSet(P1set, P2set, view, type="link",resolution=20):
+def makeMeshHelperSet(P1set, P2set, view, colors=None, type="link",resolution=20):
     helper = []
 
     numCylinder = len(P1set)
@@ -254,13 +291,18 @@ def makeMeshHelperSet(P1set, P2set, view, type="link",resolution=20):
     for i in range(numCylinder):
             P1 = P1set[i]
             P2 = P2set[i]
-            linkMesh = getCylinderMesh(P1, P2, type,resolution)
+            if colors is None:
+                color = None
+            
+            else:
+                color = colors[i]
+            linkMesh = getCylinderMesh(P1, P2, type, resolution=resolution, color=color)
             
             if linkMesh:
                 view.addItem(linkMesh)
                 if type == "joint":
-                    circle1 = getCylinderMesh(P1, P2, "circle")
-                    circle2 = getCylinderMesh(P2, P1, "circle")
+                    circle1 = getCylinderMesh(P1, P2, "circle", color)
+                    circle2 = getCylinderMesh(P2, P1, "circle", color)
 
                     view.addItem(circle1)
                     view.addItem(circle2)
@@ -307,7 +349,7 @@ def getRotAxisPoints(Arm,valueSet,armPositions=None,cLength=0.5,offset=None):
     
     return jointPointSet
 
-def applyTransform(meshItem, P1, P2):
+def applyTransform(meshItem, P1, P2, color=None):
     vec = P2 - P1
     normLength = np.linalg.norm(vec)
     meshItem.resetTransform()
@@ -386,7 +428,7 @@ def getArcSet(Arm,valueSet,jointPoints=None, armPositions=None,radius=None,resol
     if jointPoints is None:
         jointPoints = np.array(getRotAxisPoints(Arm=Arm,valueSet=valueSet,armPositions=armPositions))
     
-    primsatic_index = prismatic_indices(Arm)
+    prismatic_index = prismatic_indices(Arm)
     jointNum = len(jointPoints[0])
 
     lines = np.array(jointLines(Arm,valueSet,jointPoints, armPositions, vecLength=1, mode="out"))
@@ -403,7 +445,7 @@ def getArcSet(Arm,valueSet,jointPoints=None, armPositions=None,radius=None,resol
         frameStatic = static_vec[i]
 
         for j in range(jointNum - 1):
-            if j in primsatic_index:
+            if j in prismatic_index:
                 continue
 
             joint_dir = frameAxes[j]
@@ -525,7 +567,7 @@ def pieMeshMaker(arc_set,arc_faces,view, colors=None):
 
 def get_colors(valueSet, arc_set, Arm, min_color=None, max_color=None, resolution=50):
     valueSet = np.array(valueSet)
-    primsatic_index = prismatic_indices(Arm)
+    prismatic_index = prismatic_indices(Arm)
     face_per_circle = resolution - 1
     if min_color is None:
         min_color = [1, 0.8, 0, 0.5]
@@ -536,7 +578,6 @@ def get_colors(valueSet, arc_set, Arm, min_color=None, max_color=None, resolutio
     max_color = np.array(max_color)
 
     color_diff = max_color - min_color
-
 
     value_abs = np.abs(valueSet)
 
@@ -552,7 +593,7 @@ def get_colors(valueSet, arc_set, Arm, min_color=None, max_color=None, resolutio
         frame_values = valueSet[frame]
 
         for joint in range(len(frame_values)):
-            if joint in primsatic_index:
+            if joint in prismatic_index:
                 continue
 
             
@@ -627,7 +668,7 @@ def adjusted_text_points(Arm, valueSet, armPositions=None, offset=0.5, default_d
     # offset is the distance of the text from the joint circle
     frame_num = len(valueSet)
     text_points = np.array(getRotAxisPoints(Arm=Arm,valueSet=valueSet,armPositions=armPositions,offset=offset))
-    primsatic_index = prismatic_indices(Arm)
+    prismatic_index = prismatic_indices(Arm)
 
     single_point_set = []
     for frame in range(frame_num):
@@ -642,9 +683,9 @@ def adjusted_text_points(Arm, valueSet, armPositions=None, offset=0.5, default_d
             P2 = frame_text_points[joint][1]
             prev_joint = joint - 1
 
-            if joint in primsatic_index or prev_joint in primsatic_index:
+            if joint in prismatic_index or prev_joint in prismatic_index:
 
-                if joint in primsatic_index:
+                if joint in prismatic_index:
                     pos = frame_positions[joint + 1]
                 
                 else:
@@ -710,15 +751,19 @@ def adjusted_text_points(Arm, valueSet, armPositions=None, offset=0.5, default_d
 
     return single_point_set
 
-def make_joint_text(Arm, valueSet, L_unit=None, rot_unit=None):
+def make_joint_text(Arm, valueSet, L_unit=None, rot_unit=None, other_unit=None):
+    local_max = np.max(valueSet, axis=0)
     if L_unit is None:
         L_unit="u"
     
     if rot_unit is None:
         rot_unit="rad"
 
+    if other_unit is not None:
+        other_text = " " + other_unit
+
     valueSet = np.array(valueSet)
-    primsatic_index = prismatic_indices(Arm)
+    prismatic_index = prismatic_indices(Arm)
 
     d_unit_text = " " + L_unit
 
@@ -739,15 +784,24 @@ def make_joint_text(Arm, valueSet, L_unit=None, rot_unit=None):
         frame_text = []
 
         for i, joint_value in enumerate(frame_value):
-            
-            if i in primsatic_index:
-                joint_value = round(joint_value, 2)
-                joint_text = str(joint_value) + d_unit_text
+            joint_max = round(local_max[i], 2)
+            if other_unit is None:
+                if i in prismatic_index:
+                    joint_value = round(joint_value, 2)
+                    joint_text = str(joint_value) + d_unit_text
 
+                else:
+                    num_value = joint_value * modifier
+                    num_value = round(num_value, 2)
+                    joint_text = str(num_value) + rot_unit_text
+            
             else:
-                num_value = joint_value * modifier
-                num_value = round(num_value, 2)
-                joint_text = str(num_value) + rot_unit_text
+                if i in prismatic_index:
+                    joint_text = ""
+
+                else:
+                    num_value = round(joint_value, 2)
+                    joint_text = str(num_value) + other_text + ", max = " + str(joint_max) + other_text
 
             frame_text.append(joint_text)
         text.append(frame_text)
@@ -765,6 +819,91 @@ def make_text_item_set(text_points, text_valueSet, view):
         view.addItem(point_text)
         text_items.append(point_text)
     return text_items
+
+def get_color_intensity(values, neutral_color=None, min_color=None, max_color=None, absolute_mode=True, mode="global", prismatic_index=None): # neutral color is 0
+    # mode="local" means per joint LOCAL min max, mode="global" means global min/max
+    # absolute_mode True uses absolute values, 0 as the lowest, and False means there could be a negative minimum, using neutral_color as 0
+    values = np.array(values)
+
+    if prismatic_index is not None:
+        for index in prismatic_index:
+            values = np.delete(values, index, axis=1)
+
+    frame_num = len(values)
+
+    abs_values = np.abs(values)
+
+    local_min = np.min(values, axis=0)
+    local_max = np.max(values, axis=0)
+    local_abs_max = np.max(abs_values, axis=0)
+    joint_num = len(local_abs_max)           
+
+    global_min = np.min(local_min)
+    global_max = np.max(local_max)
+    global_abs_max = np.max(local_abs_max)
+
+    if neutral_color is None:
+        neutral_color = [0.6, 0.98, 0.6, 1.0]
+    neutral_color = np.array(neutral_color)
+
+    if max_color is None:
+        max_color = [1.0, 0, 0, 1.0]
+    max_color = np.array(max_color)
+
+    color_diff_up = max_color - neutral_color
+
+    if not absolute_mode:
+        if min_color is None:
+            min_color = [0, 0, 1.0, 1.0]
+        min_color = np.array(min_color)
+        color_diff_down = min_color - neutral_color
+    
+    if mode == "global":
+        local_min = np.tile(global_min, joint_num)
+        local_max = np.tile(global_max, joint_num)
+        local_abs_max = np.tile(global_abs_max, joint_num)
+    
+    colors = []
+    for i in range(frame_num):
+        frame_colors = []
+        for j in range(joint_num):
+            if absolute_mode:
+                current_value = abs_values[i][j]
+                joint_max = local_abs_max[j]
+
+                if joint_max == 0:
+                    color = neutral_color.copy()
+                
+                else:
+                    value_fraction = current_value / joint_max
+                    color = neutral_color + (color_diff_up * value_fraction)
+
+            else:
+                current_value = values[i][j]
+
+                color = neutral_color.copy()
+
+                if current_value > 0:
+                    joint_max = local_max[j]
+
+                    if joint_max == 0:
+                        color = neutral_color.copy()
+                    else:
+                        value_fraction = abs(current_value / joint_max)
+                        color += color_diff_up * value_fraction
+                
+                elif current_value < 0:
+                    joint_min = local_min[j]
+                    if joint_min == 0:
+                        color = neutral_color.copy()
+                    else:
+                        value_fraction = abs(current_value / joint_min)
+                        color += color_diff_down * value_fraction
+
+            frame_colors.append(np.clip(color, 0.0, 1.0).tolist())
+        colors.append(frame_colors)
+    return colors
+
 
 # MatPlotLib main function
 def dispMatplot(Arm, PSangles, Points, keyPos, PPs=30,margin=2,labelToggle=True,keyToggle=False):
