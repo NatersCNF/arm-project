@@ -153,8 +153,8 @@ path1.addP(point(-a, a, z_level+(heightDiff / 2), rotate_x, rotate_y, rotate_z))
 path1.addP(point(a, a, z_level+(heightDiff), rotate_x, rotate_y, rotate_z))
 
 if True:
-    limit_low = -1 * np.pi
-    limit_high = 1 * np.pi
+    limit_low = -1
+    limit_high = 1
     for i in range(len(path1.keyPos)):
         rotate_x = float(np.random.uniform(limit_low, limit_high))
         rotate_y = float(np.random.uniform(limit_low, limit_high))

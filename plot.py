@@ -540,9 +540,6 @@ def pieMeshMaker(arc_set,arc_faces,view, colors=None):
     arc2_meshes = []
 
     for joint_arc1, joint_arc2, joint_faces, joint_colors in zip(startFrame1_arcs, startFrame2_arcs, start_faces, initial_color):
-        arc1_meshdata = gl.MeshData(vertexes=joint_arc1, faces=joint_faces)
-        arc2_meshdata = gl.MeshData(vertexes=joint_arc2, faces=joint_faces)
-
         if colors is None:
             arc1_meshdata = gl.MeshData(vertexes=joint_arc1, faces=joint_faces)
             arc2_meshdata = gl.MeshData(vertexes=joint_arc2, faces=joint_faces)
